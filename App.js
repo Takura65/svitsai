@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 
 import {
   View,
@@ -14,7 +14,22 @@ import {
 
 import { COLORS } from "./src/theme/colors";
 
+import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
+
 export default function App() {
+  // Track which screen the user is viewing
+  const [currentScreen, setCurrentScreen] = useState("home");
+
+  // Display parcel registration screen
+  if (currentScreen === "registration") {
+    return (
+      <ParcelRegistrationScreen
+        onBack={() => setCurrentScreen("home")}
+      />
+    );
+  }
+
+  // Display home screen
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -23,6 +38,7 @@ export default function App() {
       />
 
       <ScrollView showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logo}>
@@ -38,31 +54,31 @@ export default function App() {
 
           <Pressable
             onPress={() =>
-              Alert.alert("Notifications", "No new notifications.")
+              Alert.alert(
+                "Notifications",
+                "No new notifications."
+              )
             }
           >
             <Text style={styles.bell}>🔔</Text>
           </Pressable>
         </View>
 
-        {/* Welcome Section */}
+        {/* Welcome */}
         <View style={styles.welcome}>
-          <Text style={styles.heading}>Hello there 👋</Text>
+          <Text style={styles.heading}>
+            Hello there 👋
+          </Text>
 
           <Text style={styles.description}>
             Where would you like to send a parcel today?
           </Text>
         </View>
 
-        {/* Send Parcel Card */}
+        {/* Send Parcel */}
         <Pressable
           style={styles.sendCard}
-          onPress={() =>
-            Alert.alert(
-              "Svitsai",
-              "Parcel registration coming soon!"
-            )
-          }
+          onPress={() => setCurrentScreen("registration")}
         >
           <Text style={styles.cardIcon}>📦</Text>
 
@@ -77,7 +93,7 @@ export default function App() {
           <Text style={styles.arrow}>↗</Text>
         </Pressable>
 
-        {/* Track Parcel Card */}
+        {/* Track Parcel */}
         <Pressable
           style={styles.trackCard}
           onPress={() =>
@@ -118,10 +134,12 @@ export default function App() {
             </Text>
           </View>
         </View>
+
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
+
         <Text style={styles.activeNav}>
           ⌂{"\n"}Home
         </Text>
@@ -155,13 +173,15 @@ export default function App() {
             👤{"\n"}Profile
           </Text>
         </Pressable>
+
       </View>
     </SafeAreaView>
   );
 }
 
-// STYLES
+// Home screen styles
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -341,4 +361,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
   },
+
 });

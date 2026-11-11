@@ -15,9 +15,11 @@ import {
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
+import { saveParcel } from "../services/parcelStorage";
 
 export default function ParcelRegistrationScreen({ onBack }) {
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Sender information
   const [senderName, setSenderName] = useState("");
@@ -38,13 +40,23 @@ export default function ParcelRegistrationScreen({ onBack }) {
   const [parcelQuantity, setParcelQuantity] = useState("1");
   const [parcelValue, setParcelValue] = useState("");
 
-  // Phone validation
+  // Display alerts on web and mobile
+  const showMessage = (title, message) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
+  // Zimbabwean mobile number validation
   const isValidPhone = (phone) => {
     const cleaned = phone.replace(/[\s-]/g, "");
+
     return /^(07\d{8}|\+2637\d{8}|2637\d{8})$/.test(cleaned);
   };
 
-  // Clear all registration fields
+  // Reset registration form
   const resetForm = () => {
     setStep(1);
 
@@ -64,12 +76,17 @@ export default function ParcelRegistrationScreen({ onBack }) {
     setParcelValue("");
   };
 
-  // Registration navigation and validation
-  const handleContinue = () => {
-    // STEP 1: SENDER
+  // Main registration function
+  const handleContinue = async () => {
+    if (isSaving) return;
+
+    console.log("Registration button pressed");
+    console.log("Current registration step:", step);
+
+    // STEP 1: SENDER INFORMATION
     if (step === 1) {
       if (!senderName.trim() || !senderPhone.trim()) {
-        Alert.alert(
+        showMessage(
           "Missing Information",
           "Please enter the sender's full name and phone number."
         );
@@ -77,7 +94,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
       }
 
       if (!isValidPhone(senderPhone)) {
-        Alert.alert(
+        showMessage(
           "Invalid Phone Number",
           "Please enter a valid Zimbabwean mobile number, e.g. 0771234567."
         );
@@ -88,7 +105,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
       return;
     }
 
-    // STEP 2: RECIPIENT
+    // STEP 2: RECIPIENT INFORMATION
     if (step === 2) {
       if (
         !recipientName.trim() ||
@@ -98,7 +115,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
         !nextOfKinName.trim() ||
         !nextOfKinPhone.trim()
       ) {
-        Alert.alert(
+        showMessage(
           "Missing Information",
           "Please complete all recipient, destination and next-of-kin fields."
         );
@@ -109,7 +126,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
         !isValidPhone(recipientPhone) ||
         !isValidPhone(nextOfKinPhone)
       ) {
-        Alert.alert(
+        showMessage(
           "Invalid Phone Number",
           "Please check the recipient and next-of-kin phone numbers."
         );
@@ -126,18 +143,15 @@ export default function ParcelRegistrationScreen({ onBack }) {
       const value = Number(parcelValue);
 
       if (!parcelDescription.trim()) {
-        Alert.alert(
+        showMessage(
           "Missing Information",
           "Please enter a parcel description."
         );
         return;
       }
 
-      if (
-        !Number.isInteger(quantity) ||
-        quantity < 1
-      ) {
-        Alert.alert(
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        showMessage(
           "Invalid Quantity",
           "Please enter a whole number of at least 1."
         );
@@ -149,24 +163,93 @@ export default function ParcelRegistrationScreen({ onBack }) {
         !Number.isFinite(value) ||
         value < 0
       ) {
-        Alert.alert(
+        showMessage(
           "Invalid Parcel Value",
           "Please enter a valid parcel value."
         );
         return;
       }
 
-      // Successful registration
-      Alert.alert(
-        "Registration Successful!",
-        "Your sender, recipient and parcel information has been captured successfully.",
-        [
-          {
-            text: "OK",
-            onPress: resetForm,
+      // SAVE PARCEL
+      try {
+        setIsSaving(true);
+
+        console.log("Starting parcel registration...");
+
+        const savedParcel = await saveParcel({
+          sender: {
+            fullName: senderName.trim(),
+            phone: senderPhone.trim(),
           },
-        ]
-      );
+
+          recipient: {
+            fullName: recipientName.trim(),
+            phone: recipientPhone.trim(),
+          },
+
+          destination: {
+            town: destination.trim(),
+            collectionPoint: collectionPoint.trim(),
+          },
+
+          nextOfKin: {
+            fullName: nextOfKinName.trim(),
+            phone: nextOfKinPhone.trim(),
+          },
+
+          parcel: {
+            description: parcelDescription.trim(),
+            quantity: quantity,
+            estimatedValueUSD: value,
+          },
+        });
+
+        console.log("Parcel saved successfully:", savedParcel);
+
+        const successMessage =
+          `Your parcel has been registered successfully.\n\n` +
+          `Parcel Reference: ${savedParcel.id}`;
+
+        if (Platform.OS === "web") {
+          window.alert(`Registration Successful!\n\n${successMessage}`);
+          resetForm();
+
+          if (onBack) {
+            onBack();
+          }
+        } else {
+          Alert.alert(
+            "Registration Successful! 🎉",
+            successMessage,
+            [
+              {
+                text: "Register Another",
+                onPress: resetForm,
+              },
+              {
+                text: "Done",
+                onPress: () => {
+                  resetForm();
+
+                  if (onBack) {
+                    onBack();
+                  }
+                },
+              },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error("PARCEL REGISTRATION ERROR:", error);
+
+        showMessage(
+          "Registration Failed",
+          error?.message ||
+            "We could not save your parcel. Please try again."
+        );
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -229,9 +312,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
 
           {/* INTRODUCTION */}
           <View style={styles.introduction}>
-            <Text style={styles.title}>
-              Send a Parcel 📦
-            </Text>
+            <Text style={styles.title}>Send a Parcel 📦</Text>
 
             <Text style={styles.subtitle}>
               Complete the information below to get your parcel
@@ -416,17 +497,21 @@ export default function ParcelRegistrationScreen({ onBack }) {
             </View>
           )}
 
-          {/* MAIN CONTINUE BUTTON - ONLY ONE */}
+          {/* MAIN BUTTON */}
           <Pressable
-            style={styles.button}
+            style={[
+              styles.button,
+              isSaving && styles.buttonDisabled,
+            ]}
             onPress={handleContinue}
+            disabled={isSaving}
           >
             <Text style={styles.buttonText}>
-              {step === 1
-                ? "Continue →"
-                : step === 2
-                ? "Continue →"
-                : "Complete Registration ✓"}
+              {isSaving
+                ? "Saving Parcel..."
+                : step === 3
+                ? "Complete Registration ✓"
+                : "Continue →"}
             </Text>
           </Pressable>
 
@@ -434,7 +519,6 @@ export default function ParcelRegistrationScreen({ onBack }) {
           <Text style={styles.footerText}>
             Svitsai – Send with confidence.
           </Text>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -605,6 +689,10 @@ const styles = StyleSheet.create({
     padding: 17,
     borderRadius: 12,
     alignItems: "center",
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
   },
 
   buttonText: {

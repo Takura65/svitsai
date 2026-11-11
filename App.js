@@ -16,12 +16,12 @@ import {
 import { COLORS } from "./src/theme/colors";
 
 import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
+import MyParcelsScreen from "./src/screens/MyParcelsScreen";
 
 export default function App() {
-  // Track which screen the user is viewing
   const [currentScreen, setCurrentScreen] = useState("home");
 
-  // Display parcel registration screen
+  // PARCEL REGISTRATION SCREEN
   if (currentScreen === "registration") {
     return (
       <ParcelRegistrationScreen
@@ -30,7 +30,16 @@ export default function App() {
     );
   }
 
-  // Display home screen
+  // MY PARCELS SCREEN
+  if (currentScreen === "parcels") {
+    return (
+      <MyParcelsScreen
+        onBack={() => setCurrentScreen("home")}
+      />
+    );
+  }
+
+  // HOME SCREEN
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -40,7 +49,7 @@ export default function App() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
+        {/* HEADER */}
         <View style={styles.header}>
           <Image
             source={require("./assets/svitsai-logo.png")}
@@ -60,7 +69,7 @@ export default function App() {
           </Pressable>
         </View>
 
-        {/* Welcome */}
+        {/* WELCOME */}
         <View style={styles.welcome}>
           <Text style={styles.heading}>
             Hello there 👋
@@ -71,7 +80,7 @@ export default function App() {
           </Text>
         </View>
 
-        {/* Send Parcel */}
+        {/* SEND PARCEL */}
         <Pressable
           style={styles.sendCard}
           onPress={() => setCurrentScreen("registration")}
@@ -89,7 +98,7 @@ export default function App() {
           <Text style={styles.arrow}>↗</Text>
         </Pressable>
 
-        {/* Track Parcel */}
+        {/* TRACK PARCEL */}
         <Pressable
           style={styles.trackCard}
           onPress={() =>
@@ -106,44 +115,65 @@ export default function App() {
           </Text>
 
           <Text style={styles.trackDescription}>
-            Check your parcel’s delivery status.
+            Check your parcel's delivery status.
           </Text>
 
           <Text style={styles.trackArrow}>↗</Text>
         </Pressable>
 
-        {/* Recent Parcels */}
+        {/* RECENT PARCELS */}
         <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>
-            Your Recent Parcels
-          </Text>
+          <View style={styles.recentHeader}>
+            <Text style={styles.sectionTitle}>
+              Your Recent Parcels
+            </Text>
+
+            <Pressable
+              onPress={() => setCurrentScreen("parcels")}
+            >
+              <Text style={styles.viewAll}>
+                View All →
+              </Text>
+            </Pressable>
+          </View>
 
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>📭</Text>
 
             <Text style={styles.emptyTitle}>
-              No parcels yet
+              View your parcel activity
             </Text>
 
             <Text style={styles.emptyDescription}>
-              Your parcel activity will appear here.
+              Check your registered parcels and their details.
             </Text>
+
+            <Pressable
+              style={styles.viewParcelsButton}
+              onPress={() => setCurrentScreen("parcels")}
+            >
+              <Text style={styles.viewParcelsText}>
+                My Parcels
+              </Text>
+            </Pressable>
           </View>
         </View>
 
       </ScrollView>
 
-      {/* Bottom Navigation */}
+      {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
 
-        <Text style={styles.activeNav}>
-          ⌂{"\n"}Home
-        </Text>
+        <Pressable
+          onPress={() => setCurrentScreen("home")}
+        >
+          <Text style={styles.activeNav}>
+            ⌂{"\n"}Home
+          </Text>
+        </Pressable>
 
         <Pressable
-          onPress={() =>
-            Alert.alert("Parcels", "Your parcels will appear here.")
-          }
+          onPress={() => setCurrentScreen("parcels")}
         >
           <Text style={styles.navItem}>
             📦{"\n"}Parcels
@@ -152,7 +182,10 @@ export default function App() {
 
         <Pressable
           onPress={() =>
-            Alert.alert("Locations", "Collection locations coming soon.")
+            Alert.alert(
+              "Locations",
+              "Collection locations coming soon."
+            )
           }
         >
           <Text style={styles.navItem}>
@@ -162,7 +195,10 @@ export default function App() {
 
         <Pressable
           onPress={() =>
-            Alert.alert("Profile", "Your profile is coming soon.")
+            Alert.alert(
+              "Profile",
+              "Your profile is coming soon."
+            )
           }
         >
           <Text style={styles.navItem}>
@@ -175,7 +211,7 @@ export default function App() {
   );
 }
 
-// Home screen styles
+// HOME SCREEN STYLES
 const styles = StyleSheet.create({
 
   container: {
@@ -284,11 +320,23 @@ const styles = StyleSheet.create({
     margin: 20,
   },
 
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: COLORS.text,
-    marginBottom: 14,
+  },
+
+  viewAll: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   emptyCard: {
@@ -314,6 +362,20 @@ const styles = StyleSheet.create({
     color: "#666666",
     marginTop: 6,
     textAlign: "center",
+  },
+
+  viewParcelsButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+
+  viewParcelsText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 13,
   },
 
   bottomNav: {

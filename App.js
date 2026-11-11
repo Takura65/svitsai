@@ -10,6 +10,7 @@ import {
   StatusBar,
   Pressable,
   Alert,
+  Image,
 } from "react-native";
 
 import { COLORS } from "./src/theme/colors";
@@ -41,16 +42,11 @@ export default function App() {
 
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>📦</Text>
-          </View>
-
-          <View style={styles.brand}>
-            <Text style={styles.brandName}>Svitsai</Text>
-            <Text style={styles.tagline}>
-              Send with confidence.
-            </Text>
-          </View>
+          <Image
+            source={require("./assets/svitsai-logo.png")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
 
           <Pressable
             onPress={() =>
@@ -110,7 +106,7 @@ export default function App() {
           </Text>
 
           <Text style={styles.trackDescription}>
-            Check your parcel's delivery status.
+            Check your parcel’s delivery status.
           </Text>
 
           <Text style={styles.trackArrow}>↗</Text>
@@ -190,36 +186,16 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 8,
   },
 
-  logo: {
-    backgroundColor: COLORS.primary,
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  logoIcon: {
-    fontSize: 25,
-  },
-
-  brand: {
+  logoImage: {
     flex: 1,
-    marginLeft: 12,
-  },
-
-  brandName: {
-    fontSize: 21,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-
-  tagline: {
-    fontSize: 12,
-    color: COLORS.primary,
+    height: 150,
+    marginRight: 12,
   },
 
   bell: {

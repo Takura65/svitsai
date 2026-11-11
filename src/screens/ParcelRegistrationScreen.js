@@ -26,13 +26,47 @@ export default function ParcelRegistrationScreen({ onBack }) {
   // Recipient information
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [destination, setDestination] = useState("");
+  const [collectionPoint, setCollectionPoint] = useState("");
 
   // Next-of-kin information
   const [nextOfKinName, setNextOfKinName] = useState("");
   const [nextOfKinPhone, setNextOfKinPhone] = useState("");
 
-  // Move to the next step
+  // Parcel information
+  const [parcelDescription, setParcelDescription] = useState("");
+  const [parcelQuantity, setParcelQuantity] = useState("1");
+  const [parcelValue, setParcelValue] = useState("");
+
+  // Phone validation
+  const isValidPhone = (phone) => {
+    const cleaned = phone.replace(/[\s-]/g, "");
+    return /^(07\d{8}|\+2637\d{8}|2637\d{8})$/.test(cleaned);
+  };
+
+  // Clear all registration fields
+  const resetForm = () => {
+    setStep(1);
+
+    setSenderName("");
+    setSenderPhone("");
+
+    setRecipientName("");
+    setRecipientPhone("");
+    setDestination("");
+    setCollectionPoint("");
+
+    setNextOfKinName("");
+    setNextOfKinPhone("");
+
+    setParcelDescription("");
+    setParcelQuantity("1");
+    setParcelValue("");
+  };
+
+  // Registration navigation and validation
   const handleContinue = () => {
+    // STEP 1: SENDER
     if (step === 1) {
       if (!senderName.trim() || !senderPhone.trim()) {
         Alert.alert(
@@ -42,41 +76,101 @@ export default function ParcelRegistrationScreen({ onBack }) {
         return;
       }
 
+      if (!isValidPhone(senderPhone)) {
+        Alert.alert(
+          "Invalid Phone Number",
+          "Please enter a valid Zimbabwean mobile number, e.g. 0771234567."
+        );
+        return;
+      }
+
       setStep(2);
       return;
     }
 
+    // STEP 2: RECIPIENT
     if (step === 2) {
       if (
         !recipientName.trim() ||
         !recipientPhone.trim() ||
+        !destination.trim() ||
+        !collectionPoint.trim() ||
         !nextOfKinName.trim() ||
         !nextOfKinPhone.trim()
       ) {
         Alert.alert(
           "Missing Information",
-          "Please complete all four fields: recipient name, recipient phone, next-of-kin name and next-of-kin phone."
+          "Please complete all recipient, destination and next-of-kin fields."
         );
         return;
       }
 
+      if (
+        !isValidPhone(recipientPhone) ||
+        !isValidPhone(nextOfKinPhone)
+      ) {
+        Alert.alert(
+          "Invalid Phone Number",
+          "Please check the recipient and next-of-kin phone numbers."
+        );
+        return;
+      }
+
+      setStep(3);
+      return;
+    }
+
+    // STEP 3: PARCEL DETAILS
+    if (step === 3) {
+      const quantity = Number(parcelQuantity);
+      const value = Number(parcelValue);
+
+      if (!parcelDescription.trim()) {
+        Alert.alert(
+          "Missing Information",
+          "Please enter a parcel description."
+        );
+        return;
+      }
+
+      if (
+        !Number.isInteger(quantity) ||
+        quantity < 1
+      ) {
+        Alert.alert(
+          "Invalid Quantity",
+          "Please enter a whole number of at least 1."
+        );
+        return;
+      }
+
+      if (
+        parcelValue.trim() === "" ||
+        !Number.isFinite(value) ||
+        value < 0
+      ) {
+        Alert.alert(
+          "Invalid Parcel Value",
+          "Please enter a valid parcel value."
+        );
+        return;
+      }
+
+      // Successful registration
       Alert.alert(
-        "Information Saved!",
-        "Sender, recipient and next-of-kin information have been entered successfully.",
+        "Registration Successful!",
+        "Your sender, recipient and parcel information has been captured successfully.",
         [
           {
             text: "OK",
-            onPress: () => {
-              // Temporary confirmation for this prototype
-              setStep(1);
-            },
+            onPress: resetForm,
           },
         ]
       );
     }
   };
 
-  // Reusable input field
+  // Reusable input component
   const renderInput = (
     label,
     placeholder,
@@ -94,10 +188,14 @@ export default function ParcelRegistrationScreen({ onBack }) {
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
-        autoCapitalize="words"
+        autoCapitalize={
+          keyboardType === "default" ? "words" : "none"
+        }
       />
     </View>
   );
+
+  const progressWidth = `${(step / 3) * 100}%`;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -110,13 +208,12 @@ export default function ParcelRegistrationScreen({ onBack }) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
         >
-
-          {/* Header */}
+          {/* HEADER */}
           <View style={styles.header}>
             <Pressable
               onPress={() => {
-                if (step === 2) {
-                  setStep(1);
+                if (step > 1) {
+                  setStep(step - 1);
                 } else if (onBack) {
                   onBack();
                 }
@@ -130,35 +227,35 @@ export default function ParcelRegistrationScreen({ onBack }) {
             <View style={styles.headerSpace} />
           </View>
 
-          {/* Introduction */}
+          {/* INTRODUCTION */}
           <View style={styles.introduction}>
-            <Text style={styles.title}>Send a Parcel 📦</Text>
+            <Text style={styles.title}>
+              Send a Parcel 📦
+            </Text>
 
             <Text style={styles.subtitle}>
-              Complete the information below to get your parcel ready
-              for delivery.
+              Complete the information below to get your parcel
+              ready for delivery.
             </Text>
           </View>
 
-          {/* Progress */}
+          {/* PROGRESS */}
           <View style={styles.progressContainer}>
             <View style={styles.progressTrack}>
               <View
                 style={[
                   styles.progressFill,
-                  {
-                    width: step === 1 ? "50%" : "100%",
-                  },
+                  { width: progressWidth },
                 ]}
               />
             </View>
 
             <Text style={styles.progressText}>
-              STEP {step} OF 2
+              STEP {step} OF 3
             </Text>
           </View>
 
-          {/* STEP 1: SENDER */}
+          {/* STEP 1: SENDER INFORMATION */}
           {step === 1 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -192,11 +289,9 @@ export default function ParcelRegistrationScreen({ onBack }) {
             </View>
           )}
 
-          {/* STEP 2: RECIPIENT AND NEXT OF KIN */}
+          {/* STEP 2: RECIPIENT INFORMATION */}
           {step === 2 && (
             <View style={styles.section}>
-
-              {/* Recipient */}
               <View style={styles.sectionHeader}>
                 <Text style={styles.stepNumber}>02</Text>
 
@@ -228,7 +323,26 @@ export default function ParcelRegistrationScreen({ onBack }) {
 
               <View style={styles.divider} />
 
-              {/* Next of Kin */}
+              <Text style={styles.kinTitle}>
+                Destination Information
+              </Text>
+
+              {renderInput(
+                "Destination Town / City",
+                "e.g. Harare, Bulawayo",
+                destination,
+                setDestination
+              )}
+
+              {renderInput(
+                "Collection Point",
+                "Enter preferred collection point",
+                collectionPoint,
+                setCollectionPoint
+              )}
+
+              <View style={styles.divider} />
+
               <Text style={styles.kinTitle}>
                 Next-of-Kin Information
               </Text>
@@ -251,20 +365,72 @@ export default function ParcelRegistrationScreen({ onBack }) {
                 setNextOfKinPhone,
                 "phone-pad"
               )}
-
             </View>
           )}
 
-          {/* Continue Button */}
+          {/* STEP 3: PARCEL DETAILS */}
+          {step === 3 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.stepNumber}>03</Text>
+
+                <View>
+                  <Text style={styles.sectionTitle}>
+                    Parcel Details
+                  </Text>
+
+                  <Text style={styles.sectionDescription}>
+                    Tell us about the parcel you are sending.
+                  </Text>
+                </View>
+              </View>
+
+              {renderInput(
+                "Parcel Description",
+                "e.g. Clothes, electronics, documents",
+                parcelDescription,
+                setParcelDescription
+              )}
+
+              {renderInput(
+                "Number of Parcels",
+                "Enter parcel quantity",
+                parcelQuantity,
+                setParcelQuantity,
+                "number-pad"
+              )}
+
+              {renderInput(
+                "Estimated Parcel Value (USD)",
+                "e.g. 50",
+                parcelValue,
+                setParcelValue,
+                "decimal-pad"
+              )}
+
+              <Text style={styles.note}>
+                Parcel value helps us determine the appropriate
+                handling and pricing. Final charges will be
+                calculated in a later step.
+              </Text>
+            </View>
+          )}
+
+          {/* MAIN CONTINUE BUTTON - ONLY ONE */}
           <Pressable
             style={styles.button}
             onPress={handleContinue}
           >
             <Text style={styles.buttonText}>
-              {step === 1 ? "Continue →" : "Save & Continue →"}
+              {step === 1
+                ? "Continue →"
+                : step === 2
+                ? "Continue →"
+                : "Complete Registration ✓"}
             </Text>
           </Pressable>
 
+          {/* FOOTER */}
           <Text style={styles.footerText}>
             Svitsai – Send with confidence.
           </Text>
@@ -275,6 +441,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
   );
 }
 
+// STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -421,7 +588,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "bold",
     color: COLORS.primary,
-    marginBottom: 5,
+    marginBottom: 12,
+  },
+
+  note: {
+    color: "#777777",
+    fontSize: 12,
+    lineHeight: 19,
+    marginTop: 2,
   },
 
   button: {

@@ -18,11 +18,14 @@ import { COLORS } from "./src/theme/colors";
 import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
 import MyParcelsScreen from "./src/screens/MyParcelsScreen";
 import ParcelTrackingScreen from "./src/screens/ParcelTrackingScreen";
+import StaffDashboardScreen from "./src/screens/StaffDashboardScreen";
+import ParcelStatusManagementScreen from
+  "./src/screens/ParcelStatusManagementScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
 
-  // PARCEL REGISTRATION SCREEN
+  // PARCEL REGISTRATION
   if (currentScreen === "registration") {
     return (
       <ParcelRegistrationScreen
@@ -31,7 +34,7 @@ export default function App() {
     );
   }
 
-  // MY PARCELS SCREEN
+  // MY PARCELS
   if (currentScreen === "parcels") {
     return (
       <MyParcelsScreen
@@ -40,7 +43,7 @@ export default function App() {
     );
   }
 
-  // PARCEL TRACKING SCREEN
+  // PARCEL TRACKING
   if (currentScreen === "tracking") {
     return (
       <ParcelTrackingScreen
@@ -48,6 +51,27 @@ export default function App() {
       />
     );
   }
+
+  // STAFF DASHBOARD
+  if (currentScreen === "staff") {
+    return (
+      <StaffDashboardScreen
+        onBack={() => setCurrentScreen("home")}
+        onManageParcels={() =>
+          setCurrentScreen("staffManagement")
+        }
+      />
+    );
+  }
+
+  // STAFF PARCEL MANAGEMENT
+if (currentScreen === "staffManagement") {
+  return (
+    <ParcelStatusManagementScreen
+      onBack={() => setCurrentScreen("staff")}
+    />
+  );
+}
 
   // HOME SCREEN
   return (
@@ -164,6 +188,26 @@ export default function App() {
           </View>
         </View>
 
+        {/* STAFF PORTAL */}
+        <Pressable
+          style={styles.staffCard}
+          onPress={() => setCurrentScreen("staff")}
+        >
+          <Text style={styles.staffIcon}>🛠️</Text>
+
+          <View style={styles.staffContent}>
+            <Text style={styles.staffTitle}>
+              Staff Portal
+            </Text>
+
+            <Text style={styles.staffDescription}>
+              Access parcel operations and management.
+            </Text>
+          </View>
+
+          <Text style={styles.staffArrow}>→</Text>
+        </Pressable>
+
       </ScrollView>
 
       {/* BOTTOM NAVIGATION */}
@@ -216,7 +260,7 @@ export default function App() {
   );
 }
 
-// HOME SCREEN STYLES
+// STYLES
 const styles = StyleSheet.create({
 
   container: {
@@ -381,6 +425,44 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
     fontSize: 13,
+  },
+
+  staffCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginBottom: 25,
+    padding: 18,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.surface,
+  },
+
+  staffIcon: {
+    fontSize: 27,
+    marginRight: 14,
+  },
+
+  staffContent: {
+    flex: 1,
+  },
+
+  staffTitle: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  staffDescription: {
+    color: "#777777",
+    fontSize: 12,
+    marginTop: 5,
+  },
+
+  staffArrow: {
+    color: COLORS.primary,
+    fontSize: 23,
   },
 
   bottomNav: {

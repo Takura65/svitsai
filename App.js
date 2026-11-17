@@ -17,6 +17,7 @@ import { COLORS } from "./src/theme/colors";
 
 import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
 import MyParcelsScreen from "./src/screens/MyParcelsScreen";
+import ParcelTrackingScreen from "./src/screens/ParcelTrackingScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
@@ -34,6 +35,15 @@ export default function App() {
   if (currentScreen === "parcels") {
     return (
       <MyParcelsScreen
+        onBack={() => setCurrentScreen("home")}
+      />
+    );
+  }
+
+  // PARCEL TRACKING SCREEN
+  if (currentScreen === "tracking") {
+    return (
+      <ParcelTrackingScreen
         onBack={() => setCurrentScreen("home")}
       />
     );
@@ -101,12 +111,7 @@ export default function App() {
         {/* TRACK PARCEL */}
         <Pressable
           style={styles.trackCard}
-          onPress={() =>
-            Alert.alert(
-              "Svitsai",
-              "Parcel tracking coming soon!"
-            )
-          }
+          onPress={() => setCurrentScreen("tracking")}
         >
           <Text style={styles.cardIcon}>🔍</Text>
 

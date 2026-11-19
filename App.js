@@ -8,7 +8,6 @@ import {
   ScrollView,
   StatusBar,
   Pressable,
-  Alert,
   Image,
 } from "react-native";
 
@@ -25,6 +24,7 @@ import TransportTrackingScreen from "./src/screens/TransportTrackingScreen";
 import TransportPartnerManagementScreen from "./src/screens/TransportPartnerManagementScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CollectionLocationsScreen from "./src/screens/CollectionLocationsScreen";
+import UserProfileScreen from "./src/screens/UserProfileScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
@@ -129,6 +129,15 @@ export default function App() {
   if (currentScreen === "locations") {
     return (
       <CollectionLocationsScreen
+        onBack={() => setCurrentScreen("home")}
+      />
+    );
+  }
+
+  // USER PROFILE
+  if (currentScreen === "profile") {
+    return (
+      <UserProfileScreen
         onBack={() => setCurrentScreen("home")}
       />
     );
@@ -287,12 +296,7 @@ export default function App() {
         </Pressable>
 
         <Pressable
-          onPress={() =>
-            Alert.alert(
-              "Profile",
-              "Your profile is coming soon."
-            )
-          }
+          onPress={() => setCurrentScreen("profile")}
         >
           <Text style={styles.navItem}>
             👤{"\n"}Profile

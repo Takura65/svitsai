@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   View,
@@ -9,6 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +16,16 @@ import {
 
 import { COLORS } from "../theme/colors";
 import { saveParcel } from "../services/parcelStorage";
+import {
+  getCollectionLocations,
+  getSelectedLocationId,
+} from "../services/collectionLocationStorage";
+import { getUserProfile } from "../services/userProfileStorage";
 
 export default function ParcelRegistrationScreen({ onBack }) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [preferredLocation, setPreferredLocation] = useState(null);
 
   // Sender information
   const [senderName, setSenderName] = useState("");
@@ -39,6 +45,51 @@ export default function ParcelRegistrationScreen({ onBack }) {
   const [parcelDescription, setParcelDescription] = useState("");
   const [parcelQuantity, setParcelQuantity] = useState("1");
   const [parcelValue, setParcelValue] = useState("");
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadDefaults = async () => {
+      try {
+        const [locations, selectedId, profile] = await Promise.all([
+          getCollectionLocations().catch(() => []),
+          getSelectedLocationId().catch(() => ""),
+          getUserProfile().catch(() => null),
+        ]);
+
+        if (!isActive) return;
+
+        const safeList = Array.isArray(locations) ? locations : [];
+        const matchedDepot =
+          safeList.find((loc) => loc.id === selectedId) || safeList[0] || null;
+        setPreferredLocation(matchedDepot);
+
+        if (matchedDepot) {
+          setCollectionPoint((prev) => prev || matchedDepot.name || "");
+          if (matchedDepot.city) {
+            setDestination((prev) => prev || matchedDepot.city);
+          }
+        }
+
+        if (profile) {
+          if (profile.fullName) {
+            setSenderName((prev) => prev || profile.fullName);
+          }
+          if (profile.phoneNumber) {
+            setSenderPhone((prev) => prev || profile.phoneNumber);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading registration defaults:", error);
+      }
+    };
+
+    loadDefaults();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Display alerts on web and mobile
   const showMessage = (title, message) => {
@@ -65,8 +116,8 @@ export default function ParcelRegistrationScreen({ onBack }) {
 
     setRecipientName("");
     setRecipientPhone("");
-    setDestination("");
-    setCollectionPoint("");
+    setDestination(preferredLocation?.city || "");
+    setCollectionPoint(preferredLocation?.name || "");
 
     setNextOfKinName("");
     setNextOfKinPhone("");
@@ -74,6 +125,14 @@ export default function ParcelRegistrationScreen({ onBack }) {
     setParcelDescription("");
     setParcelQuantity("1");
     setParcelValue("");
+  };
+
+  const applyPreferredLocation = () => {
+    if (!preferredLocation) return;
+    setCollectionPoint(preferredLocation.name || "");
+    if (preferredLocation.city) {
+      setDestination(preferredLocation.city);
+    }
   };
 
   // Main registration function
@@ -190,6 +249,7 @@ export default function ParcelRegistrationScreen({ onBack }) {
           destination: {
             town: destination.trim(),
             collectionPoint: collectionPoint.trim(),
+            preferredLocationId: preferredLocation?.id || null,
           },
 
           nextOfKin: {
@@ -407,6 +467,32 @@ export default function ParcelRegistrationScreen({ onBack }) {
               <Text style={styles.kinTitle}>
                 Destination Information
               </Text>
+
+              {preferredLocation && (
+                <View style={styles.preferredCard}>
+                  <View style={styles.preferredRow}>
+                    <View style={styles.preferredTextWrap}>
+                      <Text style={styles.preferredEyebrow}>
+                        SAVED PREFERRED LOCATION
+                      </Text>
+                      <Text style={styles.preferredName}>
+                        📍 {preferredLocation.name} ({preferredLocation.city})
+                      </Text>
+                      <Text style={styles.preferredAddress}>
+                        {preferredLocation.address}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.usePreferredBtn}
+                      activeOpacity={0.8}
+                      onPress={applyPreferredLocation}
+                    >
+                      <Text style={styles.usePreferredText}>Use</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {renderInput(
                 "Destination Town / City",
@@ -639,6 +725,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 5,
     marginBottom: 18,
+  },
+
+  preferredCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 13,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#D8DFD5",
+  },
+
+  preferredRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  preferredTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
+  preferredEyebrow: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 1,
+  },
+
+  preferredName: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "bold",
+    marginTop: 3,
+  },
+
+  preferredAddress: {
+    color: "#666666",
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  usePreferredBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+
+  usePreferredText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
   },
 
   inputGroup: {

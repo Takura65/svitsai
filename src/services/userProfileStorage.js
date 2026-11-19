@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const USER_PROFILE_STORAGE_KEY = "@svitsai_user_profile";
+const WELCOME_SEEN_KEY = "@svitsai_has_seen_welcome";
 
 export const DEFAULT_USER_PROFILE = {
   fullName: "",
@@ -58,5 +59,35 @@ export const saveUserProfile = async (profileData) => {
   } catch (error) {
     console.error("Error saving user profile:", error);
     throw error;
+  }
+};
+
+export const hasSeenWelcome = async () => {
+  try {
+    const value = await AsyncStorage.getItem(WELCOME_SEEN_KEY);
+    return value === "true";
+  } catch (error) {
+    console.error("Error reading welcome flag:", error);
+    return false;
+  }
+};
+
+export const markWelcomeSeen = async () => {
+  try {
+    await AsyncStorage.setItem(WELCOME_SEEN_KEY, "true");
+    return true;
+  } catch (error) {
+    console.error("Error saving welcome flag:", error);
+    return false;
+  }
+};
+
+export const resetWelcomeSeen = async () => {
+  try {
+    await AsyncStorage.removeItem(WELCOME_SEEN_KEY);
+    return true;
+  } catch (error) {
+    console.error("Error resetting welcome flag:", error);
+    return false;
   }
 };

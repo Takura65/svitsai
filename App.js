@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   View,
@@ -12,7 +12,9 @@ import {
 } from "react-native";
 
 import { COLORS } from "./src/theme/colors";
+import { hasSeenWelcome, markWelcomeSeen } from "./src/services/userProfileStorage";
 
+import WelcomeScreen from "./src/screens/WelcomeScreen";
 import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
 import MyParcelsScreen from "./src/screens/MyParcelsScreen";
 import ParcelTrackingScreen from "./src/screens/ParcelTrackingScreen";
@@ -28,6 +30,39 @@ import UserProfileScreen from "./src/screens/UserProfileScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
+
+  useEffect(() => {
+    let isActive = true;
+
+    const checkFirstLaunch = async () => {
+      const seen = await hasSeenWelcome();
+      if (isActive && !seen) {
+        setCurrentScreen("welcome");
+      }
+    };
+
+    checkFirstLaunch();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleCompleteWelcome = async (nextScreen = "home") => {
+    await markWelcomeSeen();
+    setCurrentScreen(nextScreen);
+  };
+
+  // WELCOME SCREEN
+  if (currentScreen === "welcome") {
+    return (
+      <WelcomeScreen
+        onEnterHome={() => handleCompleteWelcome("home")}
+        onSendParcel={() => handleCompleteWelcome("registration")}
+        onTrackParcel={() => handleCompleteWelcome("tracking")}
+      />
+    );
+  }
 
   // PARCEL REGISTRATION
   if (currentScreen === "registration") {

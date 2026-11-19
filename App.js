@@ -23,6 +23,7 @@ import ParcelCollectionScreen from "./src/screens/ParcelCollectionScreen";
 import ParcelStatusManagementScreen from "./src/screens/ParcelStatusManagementScreen";
 import ParcelHandoverScreen from "./src/screens/ParcelHandoverScreen";
 import TransportTrackingScreen from "./src/screens/TransportTrackingScreen";
+import TransportPartnerManagementScreen from "./src/screens/TransportPartnerManagementScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
@@ -63,6 +64,7 @@ export default function App() {
         onOpenCollection={() => setCurrentScreen("collection")}
         onOpenHandover={() => setCurrentScreen("handover")}
         onOpenTransportTracking={() => setCurrentScreen("transportTracking")}
+       onOpenTransportPartners={() => setCurrentScreen("transportPartners")} 
       />
     );
   }
@@ -102,6 +104,15 @@ export default function App() {
       />
     );
   }
+  
+  // TRANSPORT PARTNER MANAGEMENT
+if (currentScreen === "transportPartners") {
+  return (
+    <TransportPartnerManagementScreen
+      onBack={() => setCurrentScreen("staff")}
+    />
+  );
+}
 
   // HOME SCREEN
   return (
@@ -226,7 +237,11 @@ export default function App() {
 
           <Pressable
             style={styles.staffButton}
-            onPress={() => setCurrentScreen("staff")}
+            onPress={() => {
+              console.log("STAFF BUTTON PRESSED");
+              Alert.alert("Button Test", "Staff button is responding!");
+              setCurrentScreen("staff");
+            }}
           >
             <Text style={styles.staffButtonText}>
                Staff Dashboard

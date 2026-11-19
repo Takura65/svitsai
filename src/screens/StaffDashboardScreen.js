@@ -20,6 +20,7 @@ export default function StaffDashboardScreen({
   onOpenCollection,
   onOpenHandover,
   onOpenTransportTracking,
+  onOpenTransportPartners,
 }) {
   const [parcels, setParcels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -222,6 +223,28 @@ export default function StaffDashboardScreen({
 
     <Text style={styles.actionDescription}>
       Monitor parcels currently handled by transport partners.
+    </Text>
+  </View>
+
+  <Text style={styles.arrow}>›</Text>
+</Pressable>
+
+{/* TRANSPORT PARTNER MANAGEMENT */}
+<Pressable
+  style={styles.actionCard}
+  onPress={onOpenTransportPartners}
+>
+  <View style={styles.actionIcon}>
+    <Text style={styles.iconText}>🏢</Text>
+  </View>
+
+  <View style={styles.actionTextContainer}>
+    <Text style={styles.actionTitle}>
+      Transport Partner Management
+    </Text>
+
+    <Text style={styles.actionDescription}>
+      Add, edit, view and manage transport companies and their vehicle details.
     </Text>
   </View>
 

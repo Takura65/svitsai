@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 
 import {
@@ -24,6 +23,8 @@ import ParcelStatusManagementScreen from "./src/screens/ParcelStatusManagementSc
 import ParcelHandoverScreen from "./src/screens/ParcelHandoverScreen";
 import TransportTrackingScreen from "./src/screens/TransportTrackingScreen";
 import TransportPartnerManagementScreen from "./src/screens/TransportPartnerManagementScreen";
+import NotificationsScreen from "./src/screens/NotificationsScreen";
+import CollectionLocationsScreen from "./src/screens/CollectionLocationsScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
@@ -64,7 +65,8 @@ export default function App() {
         onOpenCollection={() => setCurrentScreen("collection")}
         onOpenHandover={() => setCurrentScreen("handover")}
         onOpenTransportTracking={() => setCurrentScreen("transportTracking")}
-       onOpenTransportPartners={() => setCurrentScreen("transportPartners")} 
+        onOpenTransportPartners={() => setCurrentScreen("transportPartners")}
+        onOpenNotifications={() => setCurrentScreen("notifications")}
       />
     );
   }
@@ -87,7 +89,7 @@ export default function App() {
     );
   }
 
-    // PARCEL HANDOVER
+  // PARCEL HANDOVER
   if (currentScreen === "handover") {
     return (
       <ParcelHandoverScreen
@@ -96,7 +98,7 @@ export default function App() {
     );
   }
 
-   // TRANSPORT TRACKING
+  // TRANSPORT TRACKING
   if (currentScreen === "transportTracking") {
     return (
       <TransportTrackingScreen
@@ -104,15 +106,33 @@ export default function App() {
       />
     );
   }
-  
+
   // TRANSPORT PARTNER MANAGEMENT
-if (currentScreen === "transportPartners") {
-  return (
-    <TransportPartnerManagementScreen
-      onBack={() => setCurrentScreen("staff")}
-    />
-  );
-}
+  if (currentScreen === "transportPartners") {
+    return (
+      <TransportPartnerManagementScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
+
+  // PARCEL NOTIFICATIONS
+  if (currentScreen === "notifications") {
+    return (
+      <NotificationsScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
+
+  // COLLECTION LOCATIONS
+  if (currentScreen === "locations") {
+    return (
+      <CollectionLocationsScreen
+        onBack={() => setCurrentScreen("home")}
+      />
+    );
+  }
 
   // HOME SCREEN
   return (
@@ -123,7 +143,6 @@ if (currentScreen === "transportPartners") {
       />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-
         {/* HEADER */}
         <View style={styles.header}>
           <Image
@@ -133,12 +152,7 @@ if (currentScreen === "transportPartners") {
           />
 
           <Pressable
-            onPress={() =>
-              Alert.alert(
-                "Notifications",
-                "No new notifications."
-              )
-            }
+            onPress={() => setCurrentScreen("notifications")}
           >
             <Text style={styles.bell}>🔔</Text>
           </Pressable>
@@ -237,23 +251,17 @@ if (currentScreen === "transportPartners") {
 
           <Pressable
             style={styles.staffButton}
-            onPress={() => {
-              console.log("STAFF BUTTON PRESSED");
-              Alert.alert("Button Test", "Staff button is responding!");
-              setCurrentScreen("staff");
-            }}
+            onPress={() => setCurrentScreen("staff")}
           >
             <Text style={styles.staffButtonText}>
-               Staff Dashboard
+              Staff Dashboard
             </Text>
           </Pressable>
         </View>
-
       </ScrollView>
 
       {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
-
         <Pressable
           onPress={() => setCurrentScreen("home")}
         >
@@ -271,12 +279,7 @@ if (currentScreen === "transportPartners") {
         </Pressable>
 
         <Pressable
-          onPress={() =>
-            Alert.alert(
-              "Locations",
-              "Collection locations coming soon."
-            )
-          }
+          onPress={() => setCurrentScreen("locations")}
         >
           <Text style={styles.navItem}>
             📍{"\n"}Locations
@@ -295,7 +298,6 @@ if (currentScreen === "transportPartners") {
             👤{"\n"}Profile
           </Text>
         </Pressable>
-
       </View>
     </SafeAreaView>
   );
@@ -303,7 +305,6 @@ if (currentScreen === "transportPartners") {
 
 // STYLES
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -514,5 +515,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
   },
-
 });

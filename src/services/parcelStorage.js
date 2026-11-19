@@ -278,3 +278,171 @@ export const deleteParcel = async (parcelId) => {
     throw error;
   }
 };
+
+
+// Record parcel handover
+export const recordParcelHandover = async (
+  parcelId,
+  handoverDetails
+) => {
+  try {
+    const parcels = await getParcels();
+    const searchId = normaliseId(parcelId);
+
+    const parcelIndex = parcels.findIndex(
+      (item) => normaliseId(item.id) === searchId
+    );
+
+    if (parcelIndex === -1) {
+      throw new Error("Parcel not found.");
+    }
+
+    const parcel = parcels[parcelIndex];
+
+    // Allow first handover for Awaiting Collection
+    // Also allow missing handover details to be added to In Transit parcels
+    const isFirstHandover =
+      parcel.status === "Awaiting Collection";
+
+    const isMissingHandover =
+      parcel.status === "In Transit" &&
+      !parcel.transportHandover;
+
+    if (!isFirstHandover && !isMissingHandover) {
+      throw new Error(
+        "This parcel cannot be handed over in its current status or already has handover details."
+      );
+    }
+
+    const partner = handoverDetails.partner?.trim();
+    const contactPerson = handoverDetails.contactPerson?.trim();
+
+    if (!partner || !contactPerson) {
+      throw new Error(
+        "Transport partner and contact person are required."
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const handover = {
+      id: `HO-${Date.now()}`,
+      partner,
+      contactPerson,
+      contactNumber:
+        handoverDetails.contactNumber?.trim() || "",
+      vehicleDetails:
+        handoverDetails.vehicleDetails?.trim() || "",
+      notes: handoverDetails.notes?.trim() || "",
+      handedOverAt: now,
+    };
+
+    const handoverHistory = [
+      ...(parcel.handoverHistory || []),
+      handover,
+    ];
+
+    const updatedParcel = {
+      ...parcel,
+
+      // Preserve In Transit status or advance from Awaiting Collection
+      status: "In Transit",
+
+      transportHandover: handover,
+      handoverHistory,
+
+      updatedAt: now,
+
+      // Only add a new status-history entry for the first handover
+      statusHistory: isFirstHandover
+        ? [
+            ...(parcel.statusHistory || []),
+            {
+              status: "In Transit",
+              timestamp: now,
+              note: `Parcel handed over to ${partner}. Contact: ${contactPerson}.`,
+            },
+          ]
+        : parcel.statusHistory || [],
+    };
+
+    parcels[parcelIndex] = updatedParcel;
+
+    await saveParcels(parcels);
+
+    return updatedParcel;
+
+  } catch (error) {
+    console.error("Parcel handover error:", error);
+    throw error;
+  }
+};
+
+
+// Record transport journey update
+export const recordTransportUpdate = async (
+  parcelId,
+  updateDetails
+) => {
+  try {
+    const parcels = await getParcels();
+    const searchId = normaliseId(parcelId);
+
+    const parcelIndex = parcels.findIndex(
+      (item) => normaliseId(item.id) === searchId
+    );
+
+    if (parcelIndex === -1) {
+      throw new Error("Parcel not found.");
+    }
+
+    const parcel = parcels[parcelIndex];
+
+    if (parcel.status !== "In Transit") {
+      throw new Error(
+        "Transport updates can only be recorded for parcels in transit."
+      );
+    }
+
+    const location = updateDetails.location?.trim();
+    const note = updateDetails.note?.trim();
+
+    if (!location) {
+      throw new Error("Current location is required.");
+    }
+
+    if (!note) {
+      throw new Error("A transport update note is required.");
+    }
+
+    const now = new Date().toISOString();
+
+    const transportUpdate = {
+      id: `TR-${Date.now()}`,
+      location,
+      note,
+      updatedAt: now,
+    };
+
+    const updatedParcel = {
+      ...parcel,
+
+      transportUpdates: [
+        ...(parcel.transportUpdates || []),
+        transportUpdate,
+      ],
+
+      updatedAt: now,
+    };
+
+    parcels[parcelIndex] = updatedParcel;
+
+    await saveParcels(parcels);
+
+    return updatedParcel;
+
+  } catch (error) {
+    console.error("Transport update error:", error);
+    throw error;
+  }
+};

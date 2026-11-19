@@ -187,7 +187,47 @@ export default function ParcelTrackingScreen({ onBack }) {
                 {parcel.destination?.collectionPoint ||
                   "Not provided"}
               </Text>
-            </View>
+                       </View>
+
+            {/* TRANSPORT DETAILS */}
+            {parcel.transportHandover && (
+              <View style={styles.parcelCard}>
+                <Text style={styles.historyTitle}>
+                  Transport Information
+                </Text>
+
+                <Text style={styles.detailLabel}>
+                  Transport Company
+                </Text>
+                <Text style={styles.detailValue}>
+                  {parcel.transportHandover.partner}
+                </Text>
+
+                <Text style={styles.detailLabel}>
+                  Contact Person
+                </Text>
+                <Text style={styles.detailValue}>
+                  {parcel.transportHandover.contactPerson}
+                </Text>
+
+                <Text style={styles.detailLabel}>
+                  Contact Number
+                </Text>
+                <Text style={styles.detailValue}>
+                  {parcel.transportHandover.contactNumber ||
+                    "Not provided"}
+                </Text>
+
+                <Text style={styles.detailLabel}>
+                  Handover Date
+                </Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(
+                    parcel.transportHandover.handedOverAt
+                  )}
+                </Text>
+              </View>
+            )}
 
             {/* Tracking History */}
             <Text style={styles.historyTitle}>

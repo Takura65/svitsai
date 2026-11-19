@@ -19,8 +19,10 @@ import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
 import MyParcelsScreen from "./src/screens/MyParcelsScreen";
 import ParcelTrackingScreen from "./src/screens/ParcelTrackingScreen";
 import StaffDashboardScreen from "./src/screens/StaffDashboardScreen";
-import ParcelStatusManagementScreen from
-  "./src/screens/ParcelStatusManagementScreen";
+import ParcelCollectionScreen from "./src/screens/ParcelCollectionScreen";
+import ParcelStatusManagementScreen from "./src/screens/ParcelStatusManagementScreen";
+import ParcelHandoverScreen from "./src/screens/ParcelHandoverScreen";
+import TransportTrackingScreen from "./src/screens/TransportTrackingScreen";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
@@ -57,21 +59,49 @@ export default function App() {
     return (
       <StaffDashboardScreen
         onBack={() => setCurrentScreen("home")}
-        onManageParcels={() =>
-          setCurrentScreen("staffManagement")
-        }
+        onManageParcels={() => setCurrentScreen("manage")}
+        onOpenCollection={() => setCurrentScreen("collection")}
+        onOpenHandover={() => setCurrentScreen("handover")}
+        onOpenTransportTracking={() => setCurrentScreen("transportTracking")}
       />
     );
   }
 
-  // STAFF PARCEL MANAGEMENT
-if (currentScreen === "staffManagement") {
-  return (
-    <ParcelStatusManagementScreen
-      onBack={() => setCurrentScreen("staff")}
-    />
-  );
-}
+  // MANAGE PARCEL STATUS
+  if (currentScreen === "manage") {
+    return (
+      <ParcelStatusManagementScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
+
+  // PARCEL COLLECTION
+  if (currentScreen === "collection") {
+    return (
+      <ParcelCollectionScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
+
+    // PARCEL HANDOVER
+  if (currentScreen === "handover") {
+    return (
+      <ParcelHandoverScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
+
+   // TRANSPORT TRACKING
+  if (currentScreen === "transportTracking") {
+    return (
+      <TransportTrackingScreen
+        onBack={() => setCurrentScreen("staff")}
+      />
+    );
+  }
 
   // HOME SCREEN
   return (
@@ -188,25 +218,21 @@ if (currentScreen === "staffManagement") {
           </View>
         </View>
 
-        {/* STAFF PORTAL */}
-        <Pressable
-          style={styles.staffCard}
-          onPress={() => setCurrentScreen("staff")}
-        >
-          <Text style={styles.staffIcon}>🛠️</Text>
+        {/* STAFF ACCESS */}
+        <View style={styles.staffSection}>
+          <Text style={styles.staffHeading}>
+            Staff Access
+          </Text>
 
-          <View style={styles.staffContent}>
-            <Text style={styles.staffTitle}>
-              Staff Portal
+          <Pressable
+            style={styles.staffButton}
+            onPress={() => setCurrentScreen("staff")}
+          >
+            <Text style={styles.staffButtonText}>
+               Staff Dashboard
             </Text>
-
-            <Text style={styles.staffDescription}>
-              Access parcel operations and management.
-            </Text>
-          </View>
-
-          <Text style={styles.staffArrow}>→</Text>
-        </Pressable>
+          </Pressable>
+        </View>
 
       </ScrollView>
 
@@ -427,42 +453,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  staffCard: {
-    backgroundColor: "#FFFFFF",
+  staffSection: {
     marginHorizontal: 20,
     marginBottom: 25,
-    padding: 18,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.surface,
   },
 
-  staffIcon: {
-    fontSize: 27,
-    marginRight: 14,
-  },
-
-  staffContent: {
-    flex: 1,
-  },
-
-  staffTitle: {
-    color: COLORS.primary,
-    fontSize: 16,
+  staffHeading: {
+    fontSize: 17,
     fontWeight: "bold",
+    color: COLORS.text,
+    marginBottom: 12,
   },
 
-  staffDescription: {
-    color: "#777777",
-    fontSize: 12,
-    marginTop: 5,
+  staffButton: {
+    backgroundColor: COLORS.surface,
+    padding: 17,
+    borderRadius: 12,
+    alignItems: "center",
   },
 
-  staffArrow: {
+  staffButtonText: {
     color: COLORS.primary,
-    fontSize: 23,
+    fontWeight: "bold",
+    fontSize: 15,
   },
 
   bottomNav: {

@@ -31,6 +31,17 @@ export default function ParcelStatusManagementScreen({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Only allow the current or a future status.
+  // Collection must be completed through six-digit verification.
+   const availableStatuses = parcel
+  ? PARCEL_STATUSES.filter(
+      (status) =>
+        status !== "Collected" &&
+        PARCEL_STATUSES.indexOf(status) >=
+          PARCEL_STATUSES.indexOf(parcel.status)
+    )
+  : [];
+
   // SEARCH PARCEL
   const searchParcel = async () => {
     const searchReference = reference.trim().toUpperCase();
@@ -47,6 +58,7 @@ export default function ParcelStatusManagementScreen({ onBack }) {
       setLoading(true);
       setError("");
       setParcel(null);
+      setSelectedStatus("");
 
       const found = await getParcelById(searchReference);
 
@@ -68,20 +80,37 @@ export default function ParcelStatusManagementScreen({ onBack }) {
 
   // UPDATE PARCEL STATUS
   const handleStatusUpdate = async () => {
-    if (!parcel) return;
+    if (!parcel || saving) return;
 
-    if (!selectedStatus) {
-      Alert.alert("Select Status", "Choose a new parcel status.");
+    const currentIndex = PARCEL_STATUSES.indexOf(parcel.status);
+    const selectedIndex = PARCEL_STATUSES.indexOf(selectedStatus);
+
+    if (selectedIndex === -1) {
+      Alert.alert("Invalid Status", "Please select a valid status.");
       return;
     }
 
-    if (selectedStatus === parcel.status) {
+    if (selectedIndex < currentIndex) {
       Alert.alert(
-        "No Changes",
-        "This parcel already has the selected status."
+        "Invalid Status",
+        "A parcel cannot move backwards in its delivery journey."
       );
       return;
     }
+
+  const needsCodeRepair =
+  parcel.status === "Ready for Collection" &&
+  selectedStatus === "Ready for Collection" &&
+  !parcel.collectionCode;
+
+if (selectedStatus === parcel.status && !needsCodeRepair) {
+  Alert.alert(
+    "No Changes",
+    "This parcel already has the selected status."
+  );
+  return;
+}
+  
 
     try {
       setSaving(true);
@@ -93,12 +122,23 @@ export default function ParcelStatusManagementScreen({ onBack }) {
       );
 
       setParcel(updatedParcel);
+      setSelectedStatus(updatedParcel.status);
       setNote("");
 
-      Alert.alert(
-        "Success",
-        "Parcel status updated successfully."
-      );
+     if (
+  updatedParcel.status === "Ready for Collection" &&
+  updatedParcel.collectionCode
+) {
+  Alert.alert(
+    "Parcel Ready for Collection",
+    `Status updated successfully!\n\nCollection Code: ${updatedParcel.collectionCode}\n\nShare this code securely with the recipient.`
+  );
+} else {
+  Alert.alert(
+    "Success",
+    `Parcel status updated to ${updatedParcel.status}.`
+  );
+}
     } catch (err) {
       console.error("Status update error:", err);
 
@@ -106,6 +146,18 @@ export default function ParcelStatusManagementScreen({ onBack }) {
         "Update Failed",
         err.message || "Unable to update parcel status."
       );
+
+      // Reload the latest saved parcel in case it changed elsewhere.
+      try {
+        const latestParcel = await getParcelById(parcel.id);
+
+        if (latestParcel) {
+          setParcel(latestParcel);
+          setSelectedStatus(latestParcel.status);
+        }
+      } catch (refreshError) {
+        console.error("Parcel refresh error:", refreshError);
+      }
     } finally {
       setSaving(false);
     }
@@ -128,7 +180,6 @@ export default function ParcelStatusManagementScreen({ onBack }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <Pressable onPress={onBack}>
           <Text style={styles.backButton}>← Back</Text>
@@ -142,9 +193,7 @@ export default function ParcelStatusManagementScreen({ onBack }) {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>STAFF OPERATIONS</Text>
 
-        <Text style={styles.title}>
-          Parcel Management
-        </Text>
+        <Text style={styles.title}>Parcel Management</Text>
 
         <Text style={styles.subtitle}>
           Search for parcels and update their delivery progress.
@@ -152,9 +201,7 @@ export default function ParcelStatusManagementScreen({ onBack }) {
 
         {/* SEARCH */}
         <View style={styles.searchCard}>
-          <Text style={styles.label}>
-            Parcel Reference Number
-          </Text>
+          <Text style={styles.label}>Parcel Reference Number</Text>
 
           <TextInput
             style={styles.input}
@@ -191,9 +238,9 @@ export default function ParcelStatusManagementScreen({ onBack }) {
           </View>
         )}
 
-        {/* PARCEL DETAILS */}
         {parcel && (
           <>
+            {/* PARCEL DETAILS */}
             <View style={styles.parcelCard}>
               <Text style={styles.cardHeading}>
                 Parcel Information
@@ -203,9 +250,7 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                 PARCEL REFERENCE
               </Text>
 
-              <Text style={styles.reference}>
-                {parcel.id}
-              </Text>
+              <Text style={styles.reference}>{parcel.id}</Text>
 
               <View style={styles.currentStatus}>
                 <Text style={styles.currentStatusLabel}>
@@ -216,6 +261,37 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                   {parcel.status}
                 </Text>
               </View>
+
+              {parcel.status === "Ready for Collection" &&
+  parcel.collectionCode && (
+    <View style={styles.collectionCodeCard}>
+      <Text style={styles.collectionCodeLabel}>
+        RECIPIENT COLLECTION CODE
+      </Text>
+
+      <Text style={styles.collectionCodeValue}>
+        {parcel.collectionCode}
+      </Text>
+
+      <Text style={styles.collectionCodeHint}>
+        Share this six-digit code securely with the recipient.
+      </Text>
+
+      <Pressable
+        style={styles.copyCodeButton}
+        onPress={() =>
+          Alert.alert(
+            "Collection Code",
+            `Recipient's collection code: ${parcel.collectionCode}`
+          )
+        }
+      >
+        <Text style={styles.buttonText}>
+          View Collection Code
+        </Text>
+      </Pressable>
+    </View>
+  )}
 
               <View style={styles.divider} />
 
@@ -250,7 +326,11 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                 Select New Status
               </Text>
 
-              {PARCEL_STATUSES.map((status) => (
+              <Text style={styles.helperText}>
+                Only the current and future delivery statuses are available.
+              </Text>
+
+              {availableStatuses.map((status) => (
                 <Pressable
                   key={status}
                   style={[
@@ -259,6 +339,7 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                       styles.selectedStatusOption,
                   ]}
                   onPress={() => setSelectedStatus(status)}
+                  disabled={saving || status === parcel.status}
                 >
                   <View style={styles.radioOuter}>
                     {selectedStatus === status && (
@@ -274,9 +355,16 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                     ]}
                   >
                     {status}
+                    {status === parcel.status ? " (Current)" : ""}
                   </Text>
                 </Pressable>
               ))}
+
+              {parcel.status === "Collected" && (
+                <Text style={styles.completedText}>
+                  This parcel has already been collected. Its delivery journey is complete.
+                </Text>
+              )}
 
               <Text style={[styles.label, styles.noteLabel]}>
                 Tracking Note
@@ -290,19 +378,43 @@ export default function ParcelStatusManagementScreen({ onBack }) {
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
+                editable={!saving}
               />
 
               <Pressable
                 style={[
                   styles.updateButton,
-                  saving && styles.disabledButton,
+                  (
+                    saving ||
+                    (
+                      selectedStatus === parcel.status &&
+                      !(
+                        parcel.status === "Ready for Collection" &&
+                        !parcel.collectionCode
+                      )
+                    )
+                  ) && styles.disabledButton,
                 ]}
                 onPress={handleStatusUpdate}
-                disabled={saving}
+                
+                disabled={
+                  saving ||
+                  (
+                    selectedStatus === parcel.status &&
+                    !(
+                      parcel.status === "Ready for Collection" &&
+                      !parcel.collectionCode
+                    )
+                  )
+                }
               >
-                <Text style={styles.buttonText}>
-                  {saving ? "Saving Update..." : "Save Status Update"}
-                </Text>
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    Save Status Update
+                  </Text>
+                )}
               </Pressable>
             </View>
 
@@ -417,6 +529,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 10,
+  },
+
+  helperText: {
+    color: "#777777",
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
   },
 
   input: {
@@ -592,7 +711,14 @@ const styles = StyleSheet.create({
   },
 
   disabledButton: {
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+
+  completedText: {
+    color: COLORS.primary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 10,
   },
 
   historyTitle: {
@@ -655,4 +781,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 30,
   },
+
+collectionCodeCard: {
+  backgroundColor: COLORS.surface,
+  padding: 18,
+  borderRadius: 12,
+  marginTop: 15,
+  alignItems: "center",
+  borderWidth: 1,
+  borderColor: COLORS.accent,
+},
+
+collectionCodeLabel: {
+  color: COLORS.text,
+  fontSize: 11,
+  fontWeight: "bold",
+  letterSpacing: 1,
+},
+
+collectionCodeValue: {
+  color: COLORS.primary,
+  fontSize: 32,
+  fontWeight: "bold",
+  letterSpacing: 6,
+  marginVertical: 12,
+},
+
+collectionCodeHint: {
+  color: "#666666",
+  fontSize: 12,
+  textAlign: "center",
+  lineHeight: 18,
+},
+
+copyCodeButton: {
+  backgroundColor: COLORS.primary,
+  padding: 12,
+  borderRadius: 8,
+  marginTop: 12,
+  width: "100%",
+  alignItems: "center",
+},
+
 });

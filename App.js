@@ -9,12 +9,19 @@ import {
   StatusBar,
   Pressable,
   Image,
+  ActivityIndicator,
 } from "react-native";
 
 import { COLORS } from "./src/theme/colors";
-import { hasSeenWelcome, markWelcomeSeen } from "./src/services/userProfileStorage";
+import {
+  hasSeenWelcome,
+  markWelcomeSeen,
+  getUserProfile,
+  resetWelcomeSeen,
+} from "./src/services/userProfileStorage";
 
 import WelcomeScreen from "./src/screens/WelcomeScreen";
+import RegisterScreen from "./src/screens/RegisterScreen";
 import ParcelRegistrationScreen from "./src/screens/ParcelRegistrationScreen";
 import MyParcelsScreen from "./src/screens/MyParcelsScreen";
 import ParcelTrackingScreen from "./src/screens/ParcelTrackingScreen";
@@ -28,16 +35,49 @@ import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CollectionLocationsScreen from "./src/screens/CollectionLocationsScreen";
 import UserProfileScreen from "./src/screens/UserProfileScreen";
 
+const extractFirstName = (fullName) => {
+  const cleaned = String(fullName || "").trim();
+  if (!cleaned) return "";
+  return cleaned.split(/\s+/)[0];
+};
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
+  const [isCheckingLaunch, setIsCheckingLaunch] = useState(true);
+  const [userFirstName, setUserFirstName] = useState("");
 
-  useEffect(() => {
+  const loadSavedFirstName = async () => {
+    try {
+      const profile = await getUserProfile();
+      setUserFirstName(extractFirstName(profile?.fullName));
+    } catch (error) {
+      console.error("Failed to load user first name on Home:", error);
+    }
+  };
+useEffect(() => {
     let isActive = true;
 
     const checkFirstLaunch = async () => {
-      const seen = await hasSeenWelcome();
-      if (isActive && !seen) {
-        setCurrentScreen("welcome");
+      try {
+        const seen = await Promise.race([
+          hasSeenWelcome(),
+          new Promise((resolve) => setTimeout(() => resolve(false), 1500)),
+        ]);
+
+        console.log("Startup @svitsai_has_seen_welcome result:", seen);
+
+        if (isActive) {
+          setCurrentScreen(seen ? "home" : "welcome");
+        }
+      } catch (error) {
+        console.error("First launch check failed:", error);
+        if (isActive) {
+          setCurrentScreen("welcome");
+        }
+      } finally {
+        if (isActive) {
+          setIsCheckingLaunch(false);
+        }
       }
     };
 
@@ -48,18 +88,70 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (currentScreen === "home" && !isCheckingLaunch) {
+      loadSavedFirstName();
+    }
+  }, [currentScreen, isCheckingLaunch]);
+
   const handleCompleteWelcome = async (nextScreen = "home") => {
-    await markWelcomeSeen();
+    try {
+      await Promise.race([
+        markWelcomeSeen(),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+      if (nextScreen === "home") {
+        await loadSavedFirstName();
+      }
+    } catch (error) {
+      console.error("Failed to mark welcome seen:", error);
+    }
     setCurrentScreen(nextScreen);
   };
+
+  const handleResetOnboarding = async () => {
+    try {
+      await resetWelcomeSeen();
+      setUserFirstName("");
+      setCurrentScreen("welcome");
+    } catch (error) {
+      console.error("Failed to reset onboarding:", error);
+    }
+  };
+
+
+  // STARTUP GATE (WAIT FOR ASYNCSTORAGE CHECK)
+  if (isCheckingLaunch) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <StatusBar
+          backgroundColor={COLORS.background}
+          barStyle="dark-content"
+        />
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading Svitsai...</Text>
+      </SafeAreaView>
+    );
+  }
 
   // WELCOME SCREEN
   if (currentScreen === "welcome") {
     return (
       <WelcomeScreen
-        onEnterHome={() => handleCompleteWelcome("home")}
+        onEnterHome={() => setCurrentScreen("register")}
         onSendParcel={() => handleCompleteWelcome("registration")}
         onTrackParcel={() => handleCompleteWelcome("tracking")}
+      />
+    );
+  }
+
+  // ACCOUNT REGISTRATION
+  if (currentScreen === "register") {
+    return (
+      <RegisterScreen
+        onBack={() => setCurrentScreen("welcome")}
+        onComplete={() => handleCompleteWelcome("home")}
+        onSkip={() => handleCompleteWelcome("home")}
       />
     );
   }
@@ -174,6 +266,7 @@ export default function App() {
     return (
       <UserProfileScreen
         onBack={() => setCurrentScreen("home")}
+        onResetOnboarding={handleResetOnboarding}
       />
     );
   }
@@ -205,7 +298,7 @@ export default function App() {
         {/* WELCOME */}
         <View style={styles.welcome}>
           <Text style={styles.heading}>
-            Hello there 👋
+            {userFirstName ? `Hello, ${userFirstName} 👋` : "Hello there 👋"}
           </Text>
 
           <Text style={styles.description}>
@@ -344,6 +437,20 @@ export default function App() {
 
 // STYLES
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

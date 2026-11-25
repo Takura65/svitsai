@@ -21,7 +21,7 @@ import {
   getSelectedLocationId,
 } from "../services/collectionLocationStorage";
 
-export default function UserProfileScreen({ onBack }) {
+export default function UserProfileScreen({ onBack, onSignOut }) {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -236,6 +236,16 @@ export default function UserProfileScreen({ onBack }) {
           </>
         )}
 
+        {onSignOut ? (
+          <TouchableOpacity
+            style={styles.signOutButton}
+            activeOpacity={0.8}
+            onPress={onSignOut}
+          >
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <Text style={styles.footer}>
           Svitsai · Send with confidence.
         </Text>
@@ -371,6 +381,19 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "bold",
     fontSize: 15,
+  },
+  signOutButton: {
+    alignItems: "center",
+    borderColor: "#D8DFD5",
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 14,
+  },
+  signOutText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   footer: {
     textAlign: "center",

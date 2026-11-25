@@ -18,7 +18,7 @@ import { COLORS } from "../theme/colors";
 
 import {
   getParcelById,
-  recordParcelHandover,
+  recordTransportHandover,
 } from "../services/parcelStorage";
 
 export default function ParcelHandoverScreen({ onBack }) {
@@ -75,7 +75,7 @@ export default function ParcelHandoverScreen({ onBack }) {
       Keyboard.dismiss();
       setSaving(true);
 
-      const updatedParcel = await recordParcelHandover(
+      const updatedParcel = await recordTransportHandover(
         parcel.id,
         {
           partner,

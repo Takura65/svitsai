@@ -13,15 +13,11 @@ import {
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
-import {
-  getParcels,
-  deleteParcel,
-} from "../services/parcelStorage";
+import { getParcels } from "../services/parcelStorage";
 
 export default function MyParcelsScreen({ onBack }) {
   const [parcels, setParcels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
 
   // Load saved parcels
   const loadParcels = useCallback(async () => {
@@ -52,71 +48,6 @@ export default function MyParcelsScreen({ onBack }) {
   useEffect(() => {
     loadParcels();
   }, [loadParcels]);
-
-  // Delete a parcel
-  const confirmDelete = (parcel) => {
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(
-        `Are you sure you want to delete parcel ${parcel.id}?`
-      );
-
-      if (confirmed) {
-        handleDelete(parcel.id);
-      }
-
-      return;
-    }
-
-    Alert.alert(
-      "Delete Parcel",
-      `Are you sure you want to delete ${parcel.id}?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDelete(parcel.id),
-        },
-      ]
-    );
-  };
-
-  const handleDelete = async (parcelId) => {
-    try {
-      setDeletingId(parcelId);
-
-      await deleteParcel(parcelId);
-
-      setParcels((previous) =>
-        previous.filter((parcel) => parcel.id !== parcelId)
-      );
-
-      if (Platform.OS === "web") {
-        window.alert("Parcel deleted successfully.");
-      } else {
-        Alert.alert(
-          "Deleted",
-          "Parcel registration deleted successfully."
-        );
-      }
-    } catch (error) {
-      console.error("Error deleting parcel:", error);
-
-      if (Platform.OS === "web") {
-        window.alert("Unable to delete parcel. Please try again.");
-      } else {
-        Alert.alert(
-          "Error",
-          "Unable to delete parcel. Please try again."
-        );
-      }
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   // Format registration date
   const formatDate = (date) => {
@@ -281,21 +212,6 @@ export default function MyParcelsScreen({ onBack }) {
         )}
 
         <View style={styles.divider} />
-
-        <Pressable
-          style={[
-            styles.deleteButton,
-            deletingId === parcel.id && styles.disabledButton,
-          ]}
-          onPress={() => confirmDelete(parcel)}
-          disabled={deletingId === parcel.id}
-        >
-          <Text style={styles.deleteButtonText}>
-            {deletingId === parcel.id
-              ? "Deleting..."
-              : "Delete Parcel"}
-          </Text>
-        </Pressable>
       </View>
     );
   };
@@ -338,7 +254,7 @@ export default function MyParcelsScreen({ onBack }) {
             </Text>
 
             <Text style={styles.summaryDescription}>
-              Parcels saved on this device
+              Parcels linked to your account
             </Text>
           </View>
 
@@ -647,24 +563,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
     textAlign: "right",
-  },
-
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: "#E5B5B5",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-
-  deleteButtonText: {
-    color: "#C0392B",
-    fontSize: 13,
-    fontWeight: "bold",
-  },
-
-  disabledButton: {
-    opacity: 0.5,
   },
 
   centerContent: {

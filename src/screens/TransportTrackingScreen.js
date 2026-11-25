@@ -18,7 +18,7 @@ import { COLORS } from "../theme/colors";
 
 import {
   getParcelById,
-  recordTransportUpdate,
+  addTransportCheckpoint,
   PARCEL_STATUSES,
 } from "../services/parcelStorage";
 
@@ -105,7 +105,7 @@ export default function TransportTrackingScreen({ onBack }) {
       Keyboard.dismiss();
       setSavingUpdate(true);
 
-      const updatedParcel = await recordTransportUpdate(parcel.id, {
+      const updatedParcel = await addTransportCheckpoint(parcel.id, {
         location: location.trim(),
         note: note.trim(),
       });

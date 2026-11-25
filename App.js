@@ -34,6 +34,8 @@ import TransportPartnerManagementScreen from "./src/screens/TransportPartnerMana
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import CollectionLocationsScreen from "./src/screens/CollectionLocationsScreen";
 import UserProfileScreen from "./src/screens/UserProfileScreen";
+import AuthScreen from "./src/screens/AuthScreen";
+import { supabase } from "./src/lib/supabase";
 
 const extractFirstName = (fullName) => {
   const cleaned = String(fullName || "").trim();
@@ -45,6 +47,10 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState("home");
   const [isCheckingLaunch, setIsCheckingLaunch] = useState(true);
   const [userFirstName, setUserFirstName] = useState("");
+  const [authUser, setAuthUser] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authMode, setAuthMode] = useState("customer");
+  const [pendingScreen, setPendingScreen] = useState(null);
 
   const loadSavedFirstName = async () => {
     try {
@@ -94,6 +100,67 @@ useEffect(() => {
     }
   }, [currentScreen, isCheckingLaunch]);
 
+  useEffect(() => {
+    let isActive = true;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isActive) {
+        setAuthUser(session?.user || null);
+      }
+    });
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (isActive) {
+          setAuthUser(data.session?.user || null);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to restore authentication session:", error);
+      })
+      .finally(() => {
+        if (isActive) setIsAuthReady(true);
+      });
+
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const openProtectedScreen = (screen, mode = "customer") => {
+    const isStaff = authUser?.app_metadata?.role === "staff";
+    const canOpen = authUser && (mode !== "staff" || isStaff);
+
+    if (canOpen) {
+      setCurrentScreen(screen);
+      return;
+    }
+
+    setPendingScreen(screen);
+    setAuthMode(mode);
+    setCurrentScreen("auth");
+  };
+
+  const handleAuthenticated = (user) => {
+    setAuthUser(user);
+    setCurrentScreen(pendingScreen || "home");
+    setPendingScreen(null);
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Failed to sign out:", error);
+      return;
+    }
+    setAuthUser(null);
+    setCurrentScreen("home");
+  };
+
   const handleCompleteWelcome = async (nextScreen = "home") => {
     try {
       await Promise.race([
@@ -106,7 +173,11 @@ useEffect(() => {
     } catch (error) {
       console.error("Failed to mark welcome seen:", error);
     }
-    setCurrentScreen(nextScreen);
+    if (nextScreen === "registration" || nextScreen === "tracking") {
+      openProtectedScreen(nextScreen);
+    } else {
+      setCurrentScreen(nextScreen);
+    }
   };
 
   const handleResetOnboarding = async () => {
@@ -121,7 +192,7 @@ useEffect(() => {
 
 
   // STARTUP GATE (WAIT FOR ASYNCSTORAGE CHECK)
-  if (isCheckingLaunch) {
+  if (isCheckingLaunch || !isAuthReady) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <StatusBar
@@ -131,6 +202,19 @@ useEffect(() => {
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading Svitsai...</Text>
       </SafeAreaView>
+    );
+  }
+
+  if (currentScreen === "auth") {
+    return (
+      <AuthScreen
+        mode={authMode}
+        onBack={() => {
+          setPendingScreen(null);
+          setCurrentScreen("home");
+        }}
+        onAuthenticated={handleAuthenticated}
+      />
     );
   }
 
@@ -247,7 +331,7 @@ useEffect(() => {
   if (currentScreen === "notifications") {
     return (
       <NotificationsScreen
-        onBack={() => setCurrentScreen("staff")}
+        onBack={() => setCurrentScreen("home")}
       />
     );
   }
@@ -267,6 +351,7 @@ useEffect(() => {
       <UserProfileScreen
         onBack={() => setCurrentScreen("home")}
         onResetOnboarding={handleResetOnboarding}
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -289,7 +374,7 @@ useEffect(() => {
           />
 
           <Pressable
-            onPress={() => setCurrentScreen("notifications")}
+            onPress={() => openProtectedScreen("notifications")}
           >
             <Text style={styles.bell}>🔔</Text>
           </Pressable>
@@ -309,7 +394,7 @@ useEffect(() => {
         {/* SEND PARCEL */}
         <Pressable
           style={styles.sendCard}
-          onPress={() => setCurrentScreen("registration")}
+          onPress={() => openProtectedScreen("registration")}
         >
           <Text style={styles.cardIcon}>📦</Text>
 
@@ -327,7 +412,7 @@ useEffect(() => {
         {/* TRACK PARCEL */}
         <Pressable
           style={styles.trackCard}
-          onPress={() => setCurrentScreen("tracking")}
+          onPress={() => openProtectedScreen("tracking")}
         >
           <Text style={styles.cardIcon}>🔍</Text>
 
@@ -350,7 +435,7 @@ useEffect(() => {
             </Text>
 
             <Pressable
-              onPress={() => setCurrentScreen("parcels")}
+              onPress={() => openProtectedScreen("parcels")}
             >
               <Text style={styles.viewAll}>
                 View All →
@@ -371,7 +456,7 @@ useEffect(() => {
 
             <Pressable
               style={styles.viewParcelsButton}
-              onPress={() => setCurrentScreen("parcels")}
+              onPress={() => openProtectedScreen("parcels")}
             >
               <Text style={styles.viewParcelsText}>
                 My Parcels
@@ -388,7 +473,7 @@ useEffect(() => {
 
           <Pressable
             style={styles.staffButton}
-            onPress={() => setCurrentScreen("staff")}
+            onPress={() => openProtectedScreen("staff", "staff")}
           >
             <Text style={styles.staffButtonText}>
               Staff Dashboard
@@ -408,7 +493,7 @@ useEffect(() => {
         </Pressable>
 
         <Pressable
-          onPress={() => setCurrentScreen("parcels")}
+          onPress={() => openProtectedScreen("parcels")}
         >
           <Text style={styles.navItem}>
             📦{"\n"}Parcels
@@ -424,7 +509,7 @@ useEffect(() => {
         </Pressable>
 
         <Pressable
-          onPress={() => setCurrentScreen("profile")}
+          onPress={() => openProtectedScreen("profile")}
         >
           <Text style={styles.navItem}>
             👤{"\n"}Profile

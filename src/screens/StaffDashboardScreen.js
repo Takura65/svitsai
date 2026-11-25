@@ -98,7 +98,7 @@ export default function StaffDashboardScreen({
               </Text>
 
               <Text style={styles.summaryHint}>
-                Parcels saved on this device
+                Parcels in the system
               </Text>
             </View>
 

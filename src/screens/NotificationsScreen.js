@@ -15,29 +15,15 @@ import {
 import { COLORS } from "../theme/colors";
 import {
   getNotifications,
-  createParcelNotification,
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
-  NOTIFICATION_EVENTS,
-} from "../services/notificationStorage";
-
-const STATUS_OPTIONS = [
-  NOTIFICATION_EVENTS.REGISTERED,
-  NOTIFICATION_EVENTS.HANDED_OVER,
-  NOTIFICATION_EVENTS.IN_TRANSIT,
-  NOTIFICATION_EVENTS.READY_FOR_COLLECTION,
-  NOTIFICATION_EVENTS.COLLECTED,
-];
+} from "../services/parcelStorage";
 
 export default function NotificationsScreen({ onBack }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL"); // "ALL" | "UNREAD"
-  const [selectedStatus, setSelectedStatus] = useState(
-    NOTIFICATION_EVENTS.REGISTERED
-  );
-  const [creatingSample, setCreatingSample] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -59,37 +45,24 @@ export default function NotificationsScreen({ onBack }) {
     loadNotifications();
   }, [loadNotifications]);
 
-  const handleCreateTestNotification = async () => {
+  const handleMarkRead = async (id) => {
     try {
-      setCreatingSample(true);
-      const sampleCode = `SVT-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      await createParcelNotification({
-        trackingCode: sampleCode,
-        recipientName: "Tendai Moyo",
-        senderName: "Thabani Mlambo",
-        status: selectedStatus,
-      });
-
-      await loadNotifications();
+      await markNotificationRead(id);
+      setNotifications(await getNotifications());
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.message || "Could not create test notification."
-      );
-    } finally {
-      setCreatingSample(false);
+      console.error("Mark notification read error:", error);
+      Alert.alert("Update Failed", error.message || "Unable to update notification.");
     }
   };
 
-  const handleMarkRead = async (id) => {
-    const updated = await markNotificationRead(id);
-    setNotifications(updated);
-  };
-
   const handleMarkAllRead = async () => {
-    const updated = await markAllNotificationsRead();
-    setNotifications(updated);
+    try {
+      await markAllNotificationsRead();
+      setNotifications(await getNotifications());
+    } catch (error) {
+      console.error("Mark all notifications read error:", error);
+      Alert.alert("Update Failed", error.message || "Unable to update notifications.");
+    }
   };
 
   const handleDeleteItem = async (id) => {
@@ -100,8 +73,13 @@ export default function NotificationsScreen({ onBack }) {
       if (!ok) return;
     }
 
-    const updated = await deleteNotification(id);
-    setNotifications(updated);
+    try {
+      await deleteNotification(id);
+      setNotifications(await getNotifications());
+    } catch (error) {
+      console.error("Delete notification error:", error);
+      Alert.alert("Delete Failed", error.message || "Unable to delete notification.");
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -128,48 +106,6 @@ export default function NotificationsScreen({ onBack }) {
         <Text style={styles.subtitle}>
           Track delivery milestones from registration through collection.
         </Text>
-
-        {/* QUICK TEST TRIGGER FOR LOCAL TESTING */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Simulate Milestone Alert</Text>
-          <Text style={styles.helperText}>
-            Test notifications directly in AsyncStorage before wiring status
-            updates:
-          </Text>
-
-          <View style={styles.chipsRow}>
-            {STATUS_OPTIONS.map((status) => {
-              const active = selectedStatus === status;
-              return (
-                <TouchableOpacity
-                  key={status}
-                  style={[styles.chip, active && styles.chipActive]}
-                  activeOpacity={0.75}
-                  onPress={() => setSelectedStatus(status)}
-                >
-                  <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}
-                  >
-                    {status}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.8}
-            onPress={handleCreateTestNotification}
-            disabled={creatingSample}
-          >
-            <Text style={styles.primaryButtonText}>
-              {creatingSample
-                ? "Creating Alert..."
-                : `Send "${selectedStatus}" Alert`}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         {/* FILTER & ACTIONS BAR */}
         <View style={styles.toolbar}>

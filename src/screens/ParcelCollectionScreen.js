@@ -18,7 +18,7 @@ import { COLORS } from "../theme/colors";
 
 import {
   getParcelById,
-  verifyCollectionCode,
+  verifyParcelCollection,
 } from "../services/parcelStorage";
 
 export default function ParcelCollectionScreen({ onBack }) {
@@ -83,7 +83,7 @@ export default function ParcelCollectionScreen({ onBack }) {
       setVerifying(true);
 
       // This is the ONLY operation that confirms collection.
-      const collectedParcel = await verifyCollectionCode(
+      const collectedParcel = await verifyParcelCollection(
         parcel.id,
         code
       );

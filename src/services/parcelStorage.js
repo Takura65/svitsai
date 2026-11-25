@@ -1,5 +1,8 @@
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  createParcelNotification,
+  NOTIFICATION_EVENTS,
+} from "./notificationStorage";
 
 const PARCELS_STORAGE_KEY = "@svitsai_parcels";
 
@@ -12,8 +15,38 @@ export const PARCEL_STATUSES = [
 ];
 
 // Normalise parcel reference numbers
-const normaliseId = (id) =>
-  String(id || "").trim().toUpperCase();
+const normaliseId = (id) => String(id || "").trim().toUpperCase();
+
+// Ensure collection codes are strictly 6 numeric digits
+const isValidSixDigitCode = (code) => /^\d{6}$/.test(String(code || "").trim());
+
+// Safely emit a parcel notification without breaking parcel storage actions
+const emitParcelNotification = async (parcel, eventStatus, customMessage = "") => {
+  try {
+    if (!parcel) return;
+
+    const recipientName =
+      typeof parcel.recipient === "object"
+        ? parcel.recipient?.fullName || ""
+        : parcel.recipient || parcel.recipientName || "";
+
+    const senderName =
+      typeof parcel.sender === "object"
+        ? parcel.sender?.fullName || ""
+        : parcel.sender || parcel.senderName || "";
+
+    await createParcelNotification({
+      parcelId: parcel.id || "",
+      trackingCode: parcel.trackingCode || parcel.id || "",
+      recipientName,
+      senderName,
+      status: eventStatus,
+      message: customMessage,
+    });
+  } catch (notifError) {
+    console.error("Notification creation failed (non-blocking):", notifError);
+  }
+};
 
 // Get all parcels
 export const getParcels = async () => {
@@ -45,16 +78,16 @@ export const getParcelById = async (parcelId) => {
   const searchId = normaliseId(parcelId);
 
   return (
-    parcels.find(
-      (parcel) => normaliseId(parcel.id) === searchId
-    ) || null
+    parcels.find((parcel) => normaliseId(parcel.id) === searchId) || null
   );
 };
 
-// Generate a unique six-digit collection code
+// Generate a unique six-digit numeric collection code
 const generateUniqueCollectionCode = (parcels) => {
   const existingCodes = new Set(
-    parcels.map((parcel) => parcel.collectionCode).filter(Boolean)
+    parcels
+      .map((parcel) => String(parcel.collectionCode || "").trim())
+      .filter(isValidSixDigitCode)
   );
 
   if (existingCodes.size >= 900000) {
@@ -64,9 +97,7 @@ const generateUniqueCollectionCode = (parcels) => {
   let code;
 
   do {
-    code = String(
-      Math.floor(100000 + Math.random() * 900000)
-    );
+    code = String(Math.floor(100000 + Math.random() * 900000));
   } while (existingCodes.has(code));
 
   return code;
@@ -96,6 +127,7 @@ export const saveParcel = async (parcelData) => {
     };
 
     await saveParcels([newParcel, ...parcels]);
+    await emitParcelNotification(newParcel, NOTIFICATION_EVENTS.REGISTERED);
 
     return newParcel;
   } catch (error) {
@@ -105,11 +137,7 @@ export const saveParcel = async (parcelData) => {
 };
 
 // Update parcel status
-export const updateParcelStatus = async (
-  parcelId,
-  newStatus,
-  note = ""
-) => {
+export const updateParcelStatus = async (parcelId, newStatus, note = "") => {
   try {
     if (!PARCEL_STATUSES.includes(newStatus)) {
       throw new Error("Invalid parcel status.");
@@ -143,15 +171,18 @@ export const updateParcelStatus = async (
     }
 
     const now = new Date().toISOString();
+    const existingValidCode = isValidSixDigitCode(parcel.collectionCode)
+      ? String(parcel.collectionCode).trim()
+      : null;
 
-    // Generate and save a code when parcel becomes ready.
+    // Generate and save a numeric 6-digit code when parcel becomes ready.
     const collectionCode =
       newStatus === "Ready for Collection"
-        ? parcel.collectionCode ||
-          generateUniqueCollectionCode(parcels)
-        : parcel.collectionCode || null;
+        ? existingValidCode || generateUniqueCollectionCode(parcels)
+        : existingValidCode;
 
-    // Avoid duplicate history when selecting the current status.
+    // Avoid duplicate history or duplicate alerts when selecting the current status,
+    // while repairing any non-numeric code if already Ready for Collection.
     if (newStatus === parcel.status) {
       const repairedParcel = {
         ...parcel,
@@ -184,6 +215,22 @@ export const updateParcelStatus = async (
 
     await saveParcels(parcels);
 
+    if (newStatus === "In Transit") {
+      await emitParcelNotification(
+        updatedParcel,
+        NOTIFICATION_EVENTS.IN_TRANSIT
+      );
+    } else if (newStatus === "Ready for Collection") {
+      const codeNotice = collectionCode
+        ? `Parcel (${updatedParcel.id}) is ready for collection. Collection code: ${collectionCode}.`
+        : "";
+      await emitParcelNotification(
+        updatedParcel,
+        NOTIFICATION_EVENTS.READY_FOR_COLLECTION,
+        codeNotice
+      );
+    }
+
     return updatedParcel;
   } catch (error) {
     console.error("Status update error:", error);
@@ -192,10 +239,7 @@ export const updateParcelStatus = async (
 };
 
 // Verify six-digit collection code
-export const verifyCollectionCode = async (
-  parcelId,
-  enteredCode
-) => {
+export const verifyCollectionCode = async (parcelId, enteredCode) => {
   try {
     const parcels = await getParcels();
     const searchId = normaliseId(parcelId);
@@ -218,19 +262,19 @@ export const verifyCollectionCode = async (
       throw new Error("Parcel is not ready for collection.");
     }
 
-    if (!parcel.collectionCode) {
+    if (!isValidSixDigitCode(parcel.collectionCode)) {
       throw new Error(
-        "Collection code has not been generated. Update the parcel status first."
+        "A valid six-digit collection code has not been generated. Update the parcel status first."
       );
     }
 
     const submittedCode = String(enteredCode || "").trim();
 
-    if (!/^\d{6}$/.test(submittedCode)) {
+    if (!isValidSixDigitCode(submittedCode)) {
       throw new Error("Enter a valid six-digit collection code.");
     }
 
-    if (submittedCode !== String(parcel.collectionCode)) {
+    if (submittedCode !== String(parcel.collectionCode).trim()) {
       throw new Error("Incorrect collection code.");
     }
 
@@ -239,6 +283,7 @@ export const verifyCollectionCode = async (
     const updatedParcel = {
       ...parcel,
       status: "Collected",
+      collectionCode: String(parcel.collectionCode).trim(),
       collectedAt: now,
       updatedAt: now,
       statusHistory: [
@@ -254,6 +299,7 @@ export const verifyCollectionCode = async (
     parcels[parcelIndex] = updatedParcel;
 
     await saveParcels(parcels);
+    await emitParcelNotification(updatedParcel, NOTIFICATION_EVENTS.COLLECTED);
 
     return updatedParcel;
   } catch (error) {
@@ -279,12 +325,8 @@ export const deleteParcel = async (parcelId) => {
   }
 };
 
-
 // Record parcel handover
-export const recordParcelHandover = async (
-  parcelId,
-  handoverDetails
-) => {
+export const recordParcelHandover = async (parcelId, handoverDetails) => {
   try {
     const parcels = await getParcels();
     const searchId = normaliseId(parcelId);
@@ -299,14 +341,9 @@ export const recordParcelHandover = async (
 
     const parcel = parcels[parcelIndex];
 
-    // Allow first handover for Awaiting Collection
-    // Also allow missing handover details to be added to In Transit parcels
-    const isFirstHandover =
-      parcel.status === "Awaiting Collection";
-
+    const isFirstHandover = parcel.status === "Awaiting Collection";
     const isMissingHandover =
-      parcel.status === "In Transit" &&
-      !parcel.transportHandover;
+      parcel.status === "In Transit" && !parcel.transportHandover;
 
     if (!isFirstHandover && !isMissingHandover) {
       throw new Error(
@@ -329,31 +366,20 @@ export const recordParcelHandover = async (
       id: `HO-${Date.now()}`,
       partner,
       contactPerson,
-      contactNumber:
-        handoverDetails.contactNumber?.trim() || "",
-      vehicleDetails:
-        handoverDetails.vehicleDetails?.trim() || "",
+      contactNumber: handoverDetails.contactNumber?.trim() || "",
+      vehicleDetails: handoverDetails.vehicleDetails?.trim() || "",
       notes: handoverDetails.notes?.trim() || "",
       handedOverAt: now,
     };
 
-    const handoverHistory = [
-      ...(parcel.handoverHistory || []),
-      handover,
-    ];
+    const handoverHistory = [...(parcel.handoverHistory || []), handover];
 
     const updatedParcel = {
       ...parcel,
-
-      // Preserve In Transit status or advance from Awaiting Collection
       status: "In Transit",
-
       transportHandover: handover,
       handoverHistory,
-
       updatedAt: now,
-
-      // Only add a new status-history entry for the first handover
       statusHistory: isFirstHandover
         ? [
             ...(parcel.statusHistory || []),
@@ -369,21 +395,21 @@ export const recordParcelHandover = async (
     parcels[parcelIndex] = updatedParcel;
 
     await saveParcels(parcels);
+    await emitParcelNotification(
+      updatedParcel,
+      NOTIFICATION_EVENTS.HANDED_OVER,
+      `Parcel (${updatedParcel.id}) has been handed over to ${partner} (${contactPerson}).`
+    );
 
     return updatedParcel;
-
   } catch (error) {
     console.error("Parcel handover error:", error);
     throw error;
   }
 };
 
-
 // Record transport journey update
-export const recordTransportUpdate = async (
-  parcelId,
-  updateDetails
-) => {
+export const recordTransportUpdate = async (parcelId, updateDetails) => {
   try {
     const parcels = await getParcels();
     const searchId = normaliseId(parcelId);
@@ -426,12 +452,7 @@ export const recordTransportUpdate = async (
 
     const updatedParcel = {
       ...parcel,
-
-      transportUpdates: [
-        ...(parcel.transportUpdates || []),
-        transportUpdate,
-      ],
-
+      transportUpdates: [...(parcel.transportUpdates || []), transportUpdate],
       updatedAt: now,
     };
 
@@ -440,7 +461,6 @@ export const recordTransportUpdate = async (
     await saveParcels(parcels);
 
     return updatedParcel;
-
   } catch (error) {
     console.error("Transport update error:", error);
     throw error;

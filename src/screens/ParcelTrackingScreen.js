@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 
 import {
@@ -17,7 +16,6 @@ import { COLORS } from "../theme/colors";
 
 import {
   getParcelById,
-  PARCEL_STATUSES,
 } from "../services/parcelStorage";
 
 export default function ParcelTrackingScreen({ onBack }) {
@@ -76,10 +74,9 @@ export default function ParcelTrackingScreen({ onBack }) {
   };
 
   const history = parcel?.statusHistory || [];
-
-  const currentStatusIndex = PARCEL_STATUSES.indexOf(
-    parcel?.status
-  );
+  const transportUpdates = parcel?.transportUpdates || [];
+  const isReadyForCollection =
+    parcel?.status === "Ready for Collection" && !!parcel?.collectionCode;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -161,6 +158,22 @@ export default function ParcelTrackingScreen({ onBack }) {
                 </Text>
               </View>
 
+              {isReadyForCollection && (
+                <View style={styles.collectionCodeBox}>
+                  <Text style={styles.collectionCodeLabel}>
+                    6-DIGIT COLLECTION CODE
+                  </Text>
+
+                  <Text style={styles.collectionCodeValue}>
+                    {parcel.collectionCode}
+                  </Text>
+
+                  <Text style={styles.collectionCodeHint}>
+                    Present this code at {parcel.destination?.collectionPoint || "the collection point"} to collect your parcel.
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.divider} />
 
               <Text style={styles.detailLabel}>
@@ -187,7 +200,7 @@ export default function ParcelTrackingScreen({ onBack }) {
                 {parcel.destination?.collectionPoint ||
                   "Not provided"}
               </Text>
-                       </View>
+            </View>
 
             {/* TRANSPORT DETAILS */}
             {parcel.transportHandover && (
@@ -226,6 +239,43 @@ export default function ParcelTrackingScreen({ onBack }) {
                     parcel.transportHandover.handedOverAt
                   )}
                 </Text>
+              </View>
+            )}
+
+            {/* TRANSPORT CHECKPOINT UPDATES */}
+            {transportUpdates.length > 0 && (
+              <View style={styles.parcelCard}>
+                <Text style={styles.historyTitle}>
+                  Transit Checkpoints
+                </Text>
+
+                {transportUpdates
+                  .slice()
+                  .reverse()
+                  .map((checkpoint, index) => (
+                    <View
+                      key={checkpoint.id || `${checkpoint.updatedAt}-${index}`}
+                      style={[
+                        styles.checkpointItem,
+                        index < transportUpdates.length - 1 &&
+                          styles.checkpointDivider,
+                      ]}
+                    >
+                      <Text style={styles.checkpointLocation}>
+                        📍 {checkpoint.location}
+                      </Text>
+
+                      <Text style={styles.checkpointDate}>
+                        {formatDate(checkpoint.updatedAt)}
+                      </Text>
+
+                      {!!checkpoint.note && (
+                        <Text style={styles.checkpointNote}>
+                          {checkpoint.note}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
               </View>
             )}
 
@@ -403,6 +453,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  collectionCodeBox: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    alignItems: "center",
+  },
+
+  collectionCodeLabel: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 1,
+  },
+
+  collectionCodeValue: {
+    color: COLORS.primary,
+    fontSize: 28,
+    fontWeight: "bold",
+    letterSpacing: 6,
+    marginVertical: 6,
+  },
+
+  collectionCodeHint: {
+    color: "#666666",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
   divider: {
     height: 1,
     backgroundColor: "#EEEEEE",
@@ -419,6 +501,36 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: "600",
     marginTop: 4,
+  },
+
+  checkpointItem: {
+    paddingVertical: 4,
+  },
+
+  checkpointDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    paddingBottom: 14,
+    marginBottom: 14,
+  },
+
+  checkpointLocation: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+
+  checkpointDate: {
+    color: "#777777",
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  checkpointNote: {
+    color: "#666666",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 5,
   },
 
   historyTitle: {

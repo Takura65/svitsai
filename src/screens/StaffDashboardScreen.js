@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 
 import {
@@ -13,6 +12,7 @@ import {
 
 import { COLORS } from "../theme/colors";
 import { getParcels } from "../services/parcelStorage";
+import { getNotifications } from "../services/notificationStorage";
 
 export default function StaffDashboardScreen({
   onBack,
@@ -21,15 +21,29 @@ export default function StaffDashboardScreen({
   onOpenHandover,
   onOpenTransportTracking,
   onOpenTransportPartners,
+  onOpenNotifications,
 }) {
   const [parcels, setParcels] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = async () => {
     try {
       setLoading(true);
-      const data = await getParcels();
-      setParcels(data);
+      const [parcelData, notificationData] = await Promise.all([
+        getParcels(),
+        getNotifications().catch((err) => {
+          console.error("Dashboard notifications error:", err);
+          return [];
+        }),
+      ]);
+
+      setParcels(Array.isArray(parcelData) ? parcelData : []);
+
+      const safeNotifications = Array.isArray(notificationData)
+        ? notificationData
+        : [];
+      setUnreadCount(safeNotifications.filter((item) => !item.read).length);
     } catch (error) {
       console.error("Dashboard loading error:", error);
     } finally {
@@ -186,70 +200,109 @@ export default function StaffDashboardScreen({
             </Pressable>
 
             {/* TRANSPORT HANDOVER */}
-<Pressable
-  style={styles.actionCard}
-  onPress={onOpenHandover}
->
-  <View style={styles.actionIcon}>
-    <Text style={styles.iconText}></Text>
-  </View>
+            <Pressable
+              style={styles.actionCard}
+              onPress={onOpenHandover}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.emojiIconText}>📦</Text>
+              </View>
 
-  <View style={styles.actionTextContainer}>
-    <Text style={styles.actionTitle}>
-      Transport Handover
-    </Text>
+              <View style={styles.actionTextContainer}>
+                <Text style={styles.actionTitle}>
+                  Transport Handover
+                </Text>
 
-    <Text style={styles.actionDescription}>
-      Record parcels handed over to transport partners.
-    </Text>
-  </View>
+                <Text style={styles.actionDescription}>
+                  Record parcels handed over to transport partners.
+                </Text>
+              </View>
 
-  <Text style={styles.arrow}>›</Text>
-</Pressable>
+              <Text style={styles.arrow}>›</Text>
+            </Pressable>
 
-{/* TRANSPORT TRACKING */}
-<Pressable
-  style={styles.actionCard}
-  onPress={onOpenTransportTracking}
->
-  <View style={styles.actionIcon}>
-    <Text style={styles.iconText}>🚚</Text>
-  </View>
+            {/* TRANSPORT TRACKING */}
+            <Pressable
+              style={styles.actionCard}
+              onPress={onOpenTransportTracking}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.emojiIconText}>🚚</Text>
+              </View>
 
-  <View style={styles.actionTextContainer}>
-    <Text style={styles.actionTitle}>
-      Transport Tracking
-    </Text>
+              <View style={styles.actionTextContainer}>
+                <Text style={styles.actionTitle}>
+                  Transport Tracking
+                </Text>
 
-    <Text style={styles.actionDescription}>
-      Monitor parcels currently handled by transport partners.
-    </Text>
-  </View>
+                <Text style={styles.actionDescription}>
+                  Monitor parcels currently handled by transport partners.
+                </Text>
+              </View>
 
-  <Text style={styles.arrow}>›</Text>
-</Pressable>
+              <Text style={styles.arrow}>›</Text>
+            </Pressable>
 
-{/* TRANSPORT PARTNER MANAGEMENT */}
-<Pressable
-  style={styles.actionCard}
-  onPress={onOpenTransportPartners}
->
-  <View style={styles.actionIcon}>
-    <Text style={styles.iconText}>🏢</Text>
-  </View>
+            {/* TRANSPORT PARTNER MANAGEMENT */}
+            <Pressable
+              style={styles.actionCard}
+              onPress={onOpenTransportPartners}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.emojiIconText}>🏢</Text>
+              </View>
 
-  <View style={styles.actionTextContainer}>
-    <Text style={styles.actionTitle}>
-      Transport Partner Management
-    </Text>
+              <View style={styles.actionTextContainer}>
+                <Text style={styles.actionTitle}>
+                  Transport Partner Management
+                </Text>
 
-    <Text style={styles.actionDescription}>
-      Add, edit, view and manage transport companies and their vehicle details.
-    </Text>
-  </View>
+                <Text style={styles.actionDescription}>
+                  Add, edit, view and manage transport companies and their vehicle details.
+                </Text>
+              </View>
 
-  <Text style={styles.arrow}>›</Text>
-</Pressable>
+              <Text style={styles.arrow}>›</Text>
+            </Pressable>
+
+            {/* PARCEL NOTIFICATIONS */}
+            <Pressable
+              style={styles.actionCard}
+              onPress={onOpenNotifications}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.emojiIconText}>🔔</Text>
+              </View>
+
+              <View style={styles.actionTextContainer}>
+                <View style={styles.titleBadgeRow}>
+                  <Text style={styles.actionTitle}>
+                    Parcel Notifications
+                  </Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      unreadCount === 0 && styles.badgeMuted,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        unreadCount === 0 && styles.badgeTextMuted,
+                      ]}
+                    >
+                      {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.actionDescription}>
+                  View sender updates for registration, handover, transit, and collection.
+                </Text>
+              </View>
+
+              <Text style={styles.arrow}>›</Text>
+            </Pressable>
 
             {/* REFRESH */}
             <Pressable
@@ -417,6 +470,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  emojiIconText: {
+    fontSize: 20,
+  },
+
   collectionIcon: {
     width: 42,
     height: 42,
@@ -437,10 +494,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  titleBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
   actionTitle: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: "bold",
+  },
+
+  badge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+
+  badgeMuted: {
+    backgroundColor: COLORS.surface,
+  },
+
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  badgeTextMuted: {
+    color: "#777777",
   },
 
   actionDescription: {

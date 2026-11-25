@@ -22,6 +22,16 @@ import {
 } from "../services/collectionLocationStorage";
 import { getUserProfile } from "../services/userProfileStorage";
 
+const generateCollectionCode = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i += 1) {
+    const index = Math.floor(Math.random() * chars.length);
+    code += chars[index];
+  }
+  return `SVT-${code}`;
+};
+
 export default function ParcelRegistrationScreen({ onBack }) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
@@ -232,10 +242,13 @@ export default function ParcelRegistrationScreen({ onBack }) {
       // SAVE PARCEL
       try {
         setIsSaving(true);
+        const collectionCode = generateCollectionCode();
 
         console.log("Starting parcel registration...");
 
         const savedParcel = await saveParcel({
+          collectionCode,
+          status: "Registered",
           sender: {
             fullName: senderName.trim(),
             phone: senderPhone.trim(),
@@ -266,9 +279,12 @@ export default function ParcelRegistrationScreen({ onBack }) {
 
         console.log("Parcel saved successfully:", savedParcel);
 
+        const activeCollectionCode = savedParcel?.collectionCode || collectionCode;
         const successMessage =
           `Your parcel has been registered successfully.\n\n` +
-          `Parcel Reference: ${savedParcel.id}`;
+          `Parcel Reference: ${savedParcel.id}\n` +
+          `Collection Code: ${activeCollectionCode}\n` +
+          `Share this code with the recipient for pickup verification.`;
 
         if (Platform.OS === "web") {
           window.alert(`Registration Successful!\n\n${successMessage}`);

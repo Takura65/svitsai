@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from "react";
 
 import {
@@ -136,109 +135,170 @@ export default function MyParcelsScreen({ onBack }) {
     });
   };
 
+  // Format collection date and time
+  const formatDateTime = (date) => {
+    if (!date) return "Date unavailable";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Date unavailable";
+    }
+
+    return parsedDate.toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
   // Parcel card
-  const renderParcel = (parcel) => (
-    <View key={parcel.id} style={styles.parcelCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.parcelIcon}>
-          <Text style={styles.parcelEmoji}>📦</Text>
+  const renderParcel = (parcel) => {
+    const currentStatus = parcel.status || "Registered";
+    const isReadyForCollection =
+      currentStatus === "Ready for Collection" && !!parcel.collectionCode;
+    const isCollected = currentStatus === "Collected";
+
+    return (
+      <View key={parcel.id} style={styles.parcelCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.parcelIcon}>
+            <Text style={styles.parcelEmoji}>📦</Text>
+          </View>
+
+          <View style={styles.referenceContainer}>
+            <Text style={styles.referenceLabel}>
+              PARCEL REFERENCE
+            </Text>
+
+            <Text style={styles.reference}>
+              {parcel.id}
+            </Text>
+          </View>
+
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>
+              {currentStatus}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.referenceContainer}>
-          <Text style={styles.referenceLabel}>
-            PARCEL REFERENCE
-          </Text>
+        {isReadyForCollection && (
+          <View style={styles.collectionCodeBox}>
+            <Text style={styles.collectionCodeLabel}>
+              6-DIGIT COLLECTION CODE
+            </Text>
 
-          <Text style={styles.reference}>
-            {parcel.id}
+            <Text style={styles.collectionCodeValue}>
+              {parcel.collectionCode}
+            </Text>
+
+            <Text style={styles.collectionCodeHint}>
+              Present this code at {parcel.destination?.collectionPoint || "the collection point"} to pick up your parcel.
+            </Text>
+          </View>
+        )}
+
+        {isCollected && (
+          <View style={styles.collectedBanner}>
+            <Text style={styles.collectedTitle}>
+              ✓ Parcel Collected
+            </Text>
+
+            <Text style={styles.collectedMeta}>
+              Collected on {formatDateTime(parcel.collectedAt)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.divider} />
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Recipient</Text>
+
+          <Text style={styles.detailValue}>
+            {parcel.recipient?.fullName || "Not provided"}
           </Text>
         </View>
 
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>
-            {parcel.status || "Registered"}
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Destination</Text>
+
+          <Text style={styles.detailValue}>
+            {parcel.destination?.town || "Not provided"}
           </Text>
         </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Collection Point</Text>
+
+          <Text style={styles.detailValue}>
+            {parcel.destination?.collectionPoint || "Not provided"}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Description</Text>
+
+          <Text style={styles.detailValue}>
+            {parcel.parcel?.description || "Not provided"}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Quantity</Text>
+
+          <Text style={styles.detailValue}>
+            {parcel.parcel?.quantity ?? 0}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Estimated Value</Text>
+
+          <Text style={styles.detailValue}>
+            ${Number(
+              parcel.parcel?.estimatedValueUSD ?? 0
+            ).toFixed(2)}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Registered</Text>
+
+          <Text style={styles.detailValue}>
+            {formatDate(parcel.createdAt)}
+          </Text>
+        </View>
+
+        {isCollected && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Collected At</Text>
+
+            <Text style={styles.detailValue}>
+              {formatDateTime(parcel.collectedAt)}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.divider} />
+
+        <Pressable
+          style={[
+            styles.deleteButton,
+            deletingId === parcel.id && styles.disabledButton,
+          ]}
+          onPress={() => confirmDelete(parcel)}
+          disabled={deletingId === parcel.id}
+        >
+          <Text style={styles.deleteButtonText}>
+            {deletingId === parcel.id
+              ? "Deleting..."
+              : "Delete Parcel"}
+          </Text>
+        </Pressable>
       </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Recipient</Text>
-
-        <Text style={styles.detailValue}>
-          {parcel.recipient?.fullName || "Not provided"}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Destination</Text>
-
-        <Text style={styles.detailValue}>
-          {parcel.destination?.town || "Not provided"}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Collection Point</Text>
-
-        <Text style={styles.detailValue}>
-          {parcel.destination?.collectionPoint || "Not provided"}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Description</Text>
-
-        <Text style={styles.detailValue}>
-          {parcel.parcel?.description || "Not provided"}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Quantity</Text>
-
-        <Text style={styles.detailValue}>
-          {parcel.parcel?.quantity ?? 0}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Estimated Value</Text>
-
-        <Text style={styles.detailValue}>
-          ${Number(
-            parcel.parcel?.estimatedValueUSD ?? 0
-          ).toFixed(2)}
-        </Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Registered</Text>
-
-        <Text style={styles.detailValue}>
-          {formatDate(parcel.createdAt)}
-        </Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      <Pressable
-        style={[
-          styles.deleteButton,
-          deletingId === parcel.id && styles.disabledButton,
-        ]}
-        onPress={() => confirmDelete(parcel)}
-        disabled={deletingId === parcel.id}
-      >
-        <Text style={styles.deleteButtonText}>
-          {deletingId === parcel.id
-            ? "Deleting..."
-            : "Delete Parcel"}
-        </Text>
-      </Pressable>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -509,6 +569,57 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 10,
     fontWeight: "bold",
+  },
+
+  collectionCodeBox: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    alignItems: "center",
+  },
+
+  collectionCodeLabel: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 1,
+  },
+
+  collectionCodeValue: {
+    color: COLORS.primary,
+    fontSize: 28,
+    fontWeight: "bold",
+    letterSpacing: 6,
+    marginVertical: 6,
+  },
+
+  collectionCodeHint: {
+    color: "#666666",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
+  collectedBanner: {
+    backgroundColor: "#E5F3E2",
+    borderRadius: 12,
+    padding: 13,
+    marginTop: 16,
+  },
+
+  collectedTitle: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+
+  collectedMeta: {
+    color: COLORS.text,
+    fontSize: 12,
+    marginTop: 4,
   },
 
   divider: {

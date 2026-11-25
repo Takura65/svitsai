@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 
 import {
@@ -10,25 +9,41 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
   Keyboard,
+  Platform,
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
 
 import {
   getParcelById,
+  recordTransportUpdate,
   PARCEL_STATUSES,
 } from "../services/parcelStorage";
 
 export default function TransportTrackingScreen({ onBack }) {
   const [reference, setReference] = useState("");
   const [parcel, setParcel] = useState(null);
+  const [location, setLocation] = useState("");
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [savingUpdate, setSavingUpdate] = useState(false);
   const [error, setError] = useState("");
+
+  const showMessage = (title, message) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   // SEARCH PARCEL
   const searchParcel = async () => {
-    if (!reference.trim()) {
+    const searchReference = reference.trim().toUpperCase();
+
+    if (!searchReference) {
       setError("Enter a parcel reference number.");
       setParcel(null);
       return;
@@ -39,8 +54,10 @@ export default function TransportTrackingScreen({ onBack }) {
       setLoading(true);
       setError("");
       setParcel(null);
+      setLocation("");
+      setNote("");
 
-      const found = await getParcelById(reference);
+      const found = await getParcelById(searchReference);
 
       if (!found) {
         setError("Parcel not found. Check the reference number.");
@@ -53,6 +70,62 @@ export default function TransportTrackingScreen({ onBack }) {
       setError("Unable to retrieve parcel information.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // RECORD TRANSIT CHECKPOINT
+  const handleRecordCheckpoint = async () => {
+    if (!parcel || savingUpdate) return;
+
+    if (parcel.status !== "In Transit") {
+      showMessage(
+        "Not In Transit",
+        "Transit checkpoints can only be recorded for parcels that are In Transit."
+      );
+      return;
+    }
+
+    if (!location.trim()) {
+      showMessage(
+        "Missing Location",
+        "Enter the parcel's current location or checkpoint."
+      );
+      return;
+    }
+
+    if (!note.trim()) {
+      showMessage(
+        "Missing Update Note",
+        "Enter a brief note describing this transit checkpoint."
+      );
+      return;
+    }
+
+    try {
+      Keyboard.dismiss();
+      setSavingUpdate(true);
+
+      const updatedParcel = await recordTransportUpdate(parcel.id, {
+        location: location.trim(),
+        note: note.trim(),
+      });
+
+      setParcel(updatedParcel);
+      setLocation("");
+      setNote("");
+
+      showMessage(
+        "Checkpoint Recorded",
+        `Added transit update at ${location.trim()} for ${updatedParcel.id}.`
+      );
+    } catch (err) {
+      console.error("Transit checkpoint error:", err);
+      showMessage(
+        "Update Failed",
+        err.message || "Unable to record transit checkpoint."
+      );
+    } finally {
+      setSavingUpdate(false);
     }
   };
 
@@ -77,12 +150,12 @@ export default function TransportTrackingScreen({ onBack }) {
     : -1;
 
   const handoverHistory = parcel?.handoverHistory || [];
-
+  const transportUpdates = parcel?.transportUpdates || [];
   const currentHandover = parcel?.transportHandover;
+  const isInTransit = parcel?.status === "In Transit";
 
   return (
     <SafeAreaView style={styles.container}>
-
       {/* HEADER */}
       <View style={styles.header}>
         <Pressable onPress={onBack}>
@@ -98,24 +171,17 @@ export default function TransportTrackingScreen({ onBack }) {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.eyebrow}>STAFF OPERATIONS</Text>
 
-        <Text style={styles.eyebrow}>
-          STAFF OPERATIONS
-        </Text>
-
-        <Text style={styles.title}>
-          Transport Tracking
-        </Text>
+        <Text style={styles.title}>Transport Tracking</Text>
 
         <Text style={styles.subtitle}>
-          Monitor parcel movements and transport partner information.
+          Monitor parcel movements, log transit checkpoints, and review transport partner details.
         </Text>
 
         {/* SEARCH */}
         <View style={styles.card}>
-          <Text style={styles.label}>
-            Parcel Reference Number
-          </Text>
+          <Text style={styles.label}>Parcel Reference Number</Text>
 
           <TextInput
             style={styles.input}
@@ -125,12 +191,16 @@ export default function TransportTrackingScreen({ onBack }) {
             autoCapitalize="characters"
             returnKeyType="search"
             onSubmitEditing={searchParcel}
+            editable={!loading && !savingUpdate}
           />
 
           <Pressable
-            style={styles.button}
+            style={[
+              styles.button,
+              (loading || savingUpdate) && styles.disabledButton,
+            ]}
             onPress={searchParcel}
-            disabled={loading}
+            disabled={loading || savingUpdate}
           >
             <Text style={styles.buttonText}>
               {loading ? "Searching..." : "Track Transport"}
@@ -148,111 +218,171 @@ export default function TransportTrackingScreen({ onBack }) {
 
         {!!error && (
           <View style={styles.errorCard}>
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
         {parcel && (
           <>
-
             {/* PARCEL INFORMATION */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>
-                Parcel Information
-              </Text>
+              <Text style={styles.sectionTitle}>Parcel Information</Text>
 
-              <Text style={styles.detailLabel}>
-                Reference Number
-              </Text>
+              <Text style={styles.detailLabel}>Reference Number</Text>
 
-              <Text style={styles.reference}>
-                {parcel.id}
-              </Text>
+              <Text style={styles.reference}>{parcel.id}</Text>
 
-              <Text style={styles.detailLabel}>
-                Recipient
-              </Text>
+              <Text style={styles.detailLabel}>Recipient</Text>
 
               <Text style={styles.detailValue}>
                 {parcel.recipient?.fullName || "Not provided"}
               </Text>
 
-              <Text style={styles.detailLabel}>
-                Destination
-              </Text>
+              <Text style={styles.detailLabel}>Destination</Text>
 
               <Text style={styles.detailValue}>
                 {parcel.destination?.town || "Not provided"}
               </Text>
 
-              <Text style={styles.detailLabel}>
-                Collection Point
-              </Text>
+              <Text style={styles.detailLabel}>Collection Point</Text>
 
               <Text style={styles.detailValue}>
                 {parcel.destination?.collectionPoint || "Not provided"}
               </Text>
 
               <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {parcel.status}
-                </Text>
+                <Text style={styles.statusText}>{parcel.status}</Text>
               </View>
+            </View>
+
+            {/* RECORD TRANSIT CHECKPOINT */}
+            {isInTransit && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>
+                  Record Transit Checkpoint
+                </Text>
+
+                <Text style={styles.helperText}>
+                  Log a location checkpoint while this parcel is actively with the transport partner.
+                </Text>
+
+                <Text style={styles.label}>Current Location / Checkpoint *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Kwekwe Highway Checkpoint"
+                  value={location}
+                  onChangeText={setLocation}
+                  editable={!savingUpdate}
+                />
+
+                <Text style={[styles.label, { marginTop: 14 }]}>
+                  Transit Update Note *
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.notesInput]}
+                  placeholder="e.g. Vehicle passed checkpoint on schedule"
+                  value={note}
+                  onChangeText={setNote}
+                  multiline
+                  textAlignVertical="top"
+                  editable={!savingUpdate}
+                />
+
+                <Pressable
+                  style={[
+                    styles.button,
+                    savingUpdate && styles.disabledButton,
+                  ]}
+                  onPress={handleRecordCheckpoint}
+                  disabled={savingUpdate}
+                >
+                  {savingUpdate ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>
+                      Save Transit Checkpoint
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+
+            {/* SAVED TRANSIT CHECKPOINTS */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Transit Checkpoints</Text>
+
+              {transportUpdates.length > 0 ? (
+                transportUpdates
+                  .slice()
+                  .reverse()
+                  .map((checkpoint, index) => (
+                    <View
+                      key={checkpoint.id || `${checkpoint.updatedAt}-${index}`}
+                      style={styles.checkpointItem}
+                    >
+                      <Text style={styles.checkpointLocation}>
+                        📍 {checkpoint.location}
+                      </Text>
+
+                      <Text style={styles.checkpointDate}>
+                        {formatDate(checkpoint.updatedAt)}
+                      </Text>
+
+                      {!!checkpoint.note && (
+                        <Text style={styles.checkpointNote}>
+                          {checkpoint.note}
+                        </Text>
+                      )}
+
+                      {index !== transportUpdates.length - 1 && (
+                        <View style={styles.divider} />
+                      )}
+                    </View>
+                  ))
+              ) : (
+                <Text style={styles.emptyText}>
+                  No transit checkpoints recorded yet.
+                </Text>
+              )}
             </View>
 
             {/* TRANSPORT INFORMATION */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>
-                Transport Partner
-              </Text>
+              <Text style={styles.sectionTitle}>Transport Partner</Text>
 
               {currentHandover ? (
                 <>
-                  <Text style={styles.detailLabel}>
-                    Transport Company
-                  </Text>
+                  <Text style={styles.detailLabel}>Transport Company</Text>
 
                   <Text style={styles.detailValue}>
                     {currentHandover.partner || "Not recorded"}
                   </Text>
 
-                  <Text style={styles.detailLabel}>
-                    Contact Person
-                  </Text>
+                  <Text style={styles.detailLabel}>Contact Person</Text>
 
                   <Text style={styles.detailValue}>
                     {currentHandover.contactPerson || "Not recorded"}
                   </Text>
 
-                  <Text style={styles.detailLabel}>
-                    Contact Number
-                  </Text>
+                  <Text style={styles.detailLabel}>Contact Number</Text>
 
                   <Text style={styles.detailValue}>
                     {currentHandover.contactNumber || "Not provided"}
                   </Text>
 
-                  <Text style={styles.detailLabel}>
-                    Vehicle Details
-                  </Text>
+                  <Text style={styles.detailLabel}>Vehicle Details</Text>
 
                   <Text style={styles.detailValue}>
                     {currentHandover.vehicleDetails || "Not provided"}
                   </Text>
 
-                  <Text style={styles.detailLabel}>
-                    Handover Date
-                  </Text>
+                  <Text style={styles.detailLabel}>Handover Date</Text>
 
                   <Text style={styles.detailValue}>
                     {formatDate(currentHandover.handedOverAt)}
                   </Text>
 
-                  <Text style={styles.detailLabel}>
-                    Handover Notes
-                  </Text>
+                  <Text style={styles.detailLabel}>Handover Notes</Text>
 
                   <Text style={styles.detailValue}>
                     {currentHandover.notes || "No additional notes"}
@@ -267,19 +397,14 @@ export default function TransportTrackingScreen({ onBack }) {
 
             {/* DELIVERY JOURNEY */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>
-                Delivery Journey
-              </Text>
+              <Text style={styles.sectionTitle}>Delivery Journey</Text>
 
               {PARCEL_STATUSES.map((status, index) => {
                 const completed = index <= currentIndex;
                 const active = index === currentIndex;
 
                 return (
-                  <View
-                    key={status}
-                    style={styles.timelineItem}
-                  >
+                  <View key={status} style={styles.timelineItem}>
                     <View style={styles.timelineColumn}>
                       <View
                         style={[
@@ -322,6 +447,12 @@ export default function TransportTrackingScreen({ onBack }) {
                         </Text>
                       )}
 
+                      {index === 1 && (
+                        <Text style={styles.timelineDescription}>
+                          Parcel is prepared and awaiting transport handover.
+                        </Text>
+                      )}
+
                       {index === 2 && (
                         <Text style={styles.timelineDescription}>
                           Parcel is with the transport partner.
@@ -352,8 +483,10 @@ export default function TransportTrackingScreen({ onBack }) {
               </Text>
 
               {handoverHistory.length > 0 ? (
-                handoverHistory.slice().reverse().map(
-                  (handover, index) => (
+                handoverHistory
+                  .slice()
+                  .reverse()
+                  .map((handover, index) => (
                     <View
                       key={handover.id || index}
                       style={styles.handoverItem}
@@ -362,25 +495,19 @@ export default function TransportTrackingScreen({ onBack }) {
                         Handover {handoverHistory.length - index}
                       </Text>
 
-                      <Text style={styles.detailLabel}>
-                        Transport Partner
-                      </Text>
+                      <Text style={styles.detailLabel}>Transport Partner</Text>
 
                       <Text style={styles.detailValue}>
                         {handover.partner}
                       </Text>
 
-                      <Text style={styles.detailLabel}>
-                        Contact Person
-                      </Text>
+                      <Text style={styles.detailLabel}>Contact Person</Text>
 
                       <Text style={styles.detailValue}>
                         {handover.contactPerson}
                       </Text>
 
-                      <Text style={styles.detailLabel}>
-                        Handover Date
-                      </Text>
+                      <Text style={styles.detailLabel}>Handover Date</Text>
 
                       <Text style={styles.detailValue}>
                         {formatDate(handover.handedOverAt)}
@@ -390,22 +517,19 @@ export default function TransportTrackingScreen({ onBack }) {
                         <View style={styles.divider} />
                       )}
                     </View>
-                  )
-                )
+                  ))
               ) : (
                 <Text style={styles.emptyText}>
                   No handover history available.
                 </Text>
               )}
             </View>
-
           </>
         )}
 
         <Text style={styles.footer}>
           Svitsai Staff Portal · Send with confidence.
         </Text>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -472,7 +596,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: COLORS.text,
-    marginBottom: 18,
+    marginBottom: 14,
+  },
+
+  helperText: {
+    color: "#777777",
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
   },
 
   label: {
@@ -489,12 +620,20 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 
+  notesInput: {
+    height: 90,
+  },
+
   button: {
     backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 15,
+  },
+
+  disabledButton: {
+    opacity: 0.5,
   },
 
   buttonText: {
@@ -546,6 +685,29 @@ const styles = StyleSheet.create({
   statusText: {
     color: COLORS.primary,
     fontWeight: "bold",
+  },
+
+  checkpointItem: {
+    paddingVertical: 2,
+  },
+
+  checkpointLocation: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+
+  checkpointDate: {
+    color: "#777777",
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  checkpointNote: {
+    color: "#666666",
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 6,
   },
 
   timelineItem: {

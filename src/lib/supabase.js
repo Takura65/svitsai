@@ -7,11 +7,15 @@ const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || "")
   .trim()
   .replace(/\/rest\/v1\/?$/i, "")
   .replace(/\/+$/, "");
-const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+const supabaseAnonKey = (
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ||
+  ""
+).trim();
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "[Supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY in environment."
+    "[Supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY (or EXPO_PUBLIC_SUPABASE_KEY) in environment."
   );
 }
 

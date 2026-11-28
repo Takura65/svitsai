@@ -1,600 +1,485 @@
-import React, { useState } from "react";
-
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
-  StyleSheet,
-  SafeAreaView,
+  TouchableOpacity,
   ScrollView,
-  Pressable,
   ActivityIndicator,
-  Keyboard,
+  StyleSheet,
+  Alert,
+  Platform,
 } from "react-native";
+import { getParcelById } from "../services/parcelStorage";
+import AskSvitsaiCard from "../components/AskSvitsaiCard";
 
-import { COLORS } from "../theme/colors";
+function showAlert(title, message) {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
-import {
-  getParcelById,
-} from "../services/parcelStorage";
+function formatTimestamp(value) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString();
+}
 
-export default function ParcelTrackingScreen({ onBack }) {
-  const [reference, setReference] = useState("");
+function getStatusBadgeStyle(status) {
+  switch (status) {
+    case "Registered":
+      return { bg: "#E0F2FE", text: "#0369A1" };
+    case "Awaiting Collection":
+      return { bg: "#FEF3C7", text: "#B45309" };
+    case "In Transit":
+      return { bg: "#EDE9FE", text: "#6D28D9" };
+    case "Ready for Collection":
+      return { bg: "#DCFCE7", text: "#15803D" };
+    case "Collected":
+      return { bg: "#F1F5F9", text: "#334155" };
+    default:
+      return { bg: "#E2E8F0", text: "#1E293B" };
+  }
+}
+
+export default function ParcelTrackingScreen({ route }) {
+  const initialRef = route?.params?.parcelId || route?.params?.trackingCode || "";
+
+  const [searchCode, setSearchCode] = useState(initialRef);
   const [parcel, setParcel] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Search for a parcel using its reference number
-  const searchParcel = async () => {
-    const searchReference = reference.trim().toUpperCase();
+  useEffect(() => {
+    if (initialRef) {
+      handleSearch(initialRef);
+    }
+  }, [initialRef]);
 
-    if (!searchReference) {
-      setError("Enter your parcel reference number.");
-      setParcel(null);
+  async function handleSearch(overrideCode) {
+    const cleanCode = String(overrideCode ?? searchCode)
+      .trim()
+      .toUpperCase();
+
+    if (!cleanCode) {
+      showAlert("Missing Reference", "Please enter a parcel tracking reference (e.g., SVT-123456789).");
       return;
     }
 
-    Keyboard.dismiss();
-
+    setLoading(true);
+    setErrorMessage("");
     try {
-      setLoading(true);
-      setError("");
-      setParcel(null);
-
-      const found = await getParcelById(searchReference);
-
+      const found = await getParcelById(cleanCode);
       if (!found) {
-        setError("Parcel not found. Check your reference number.");
-        return;
+        setParcel(null);
+        setErrorMessage(
+          `No parcel found for "${cleanCode}". Check the reference number or verify you are signed into the authorized account.`
+        );
+      } else {
+        setParcel(found);
       }
-
-      setParcel(found);
     } catch (err) {
-      console.error("Tracking error:", err);
-      setError("Unable to track parcel. Please try again.");
+      setParcel(null);
+      setErrorMessage(err?.message || "Failed to load parcel tracking details.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  // Format tracking dates
-  const formatDate = (date) => {
-    if (!date) return "Date unavailable";
-
-    const parsed = new Date(date);
-
-    if (Number.isNaN(parsed.getTime())) {
-      return "Date unavailable";
-    }
-
-    return parsed.toLocaleString("en-GB", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  };
-
-  const history = parcel?.statusHistory || [];
-  const transportUpdates = parcel?.transportUpdates || [];
-  const isReadyForCollection =
-    parcel?.status === "Ready for Collection" && !!parcel?.collectionCode;
+  const badge = getStatusBadgeStyle(parcel?.status);
+  const statusHistory = Array.isArray(parcel?.statusHistory) ? parcel.statusHistory : [];
+  const checkpoints = Array.isArray(parcel?.checkpoints) ? parcel.checkpoints : [];
+  const handover = parcel?.transportHandover || null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.backButton}>← Back</Text>
-        </Pressable>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.screenTitle}>Track Parcel</Text>
+      <Text style={styles.screenSubtitle}>
+        Enter your Svitsai reference number to view live status, transit checkpoints, and pickup details.
+      </Text>
 
-        <Text style={styles.brand}>Svitsai</Text>
-
-        <View style={{ width: 45 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Track Your Parcel</Text>
-
-        <Text style={styles.subtitle}>
-          Enter your Svitsai parcel reference to check its progress.
-        </Text>
-
-        {/* Search Section */}
-        <View style={styles.searchCard}>
-          <Text style={styles.label}>
-            Parcel Reference Number
-          </Text>
-
+      {/* Search Bar */}
+      <View style={styles.searchCard}>
+        <Text style={styles.label}>Parcel Reference</Text>
+        <View style={styles.searchRow}>
           <TextInput
             style={styles.input}
-            value={reference}
-            onChangeText={setReference}
-            placeholder="e.g. SVT-123456789"
+            placeholder="e.g. SVT-482910345"
             autoCapitalize="characters"
-            returnKeyType="search"
-            onSubmitEditing={searchParcel}
+            autoCorrect={false}
+            value={searchCode}
+            onChangeText={setSearchCode}
+            onSubmitEditing={() => handleSearch()}
           />
-
-          <Pressable
-            style={styles.button}
-            onPress={searchParcel}
+          <TouchableOpacity
+            style={[styles.searchButton, loading && styles.buttonDisabled]}
+            onPress={() => handleSearch()}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? "Searching..." : "Track Parcel"}
-            </Text>
-          </Pressable>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.searchButtonText}>Track</Text>
+            )}
+          </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Loading Indicator */}
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color={COLORS.primary}
-          />
-        )}
+      {/* Error State */}
+      {errorMessage ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Parcel Not Found</Text>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      ) : null}
 
-        {/* Error Message */}
-        {!!error && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Parcel Details */}
-        {parcel && (
-          <>
-            <View style={styles.parcelCard}>
-              <Text style={styles.referenceLabel}>
-                PARCEL REFERENCE
-              </Text>
-
-              <Text style={styles.reference}>
-                {parcel.id}
-              </Text>
-
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
+      {/* Parcel Details */}
+      {parcel ? (
+        <>
+          {/* Summary Card */}
+          <View style={styles.card}>
+            <View style={styles.headerRow}>
+              <Text style={styles.parcelId}>{parcel.id}</Text>
+              <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                <Text style={[styles.badgeText, { color: badge.text }]}>
                   {parcel.status}
                 </Text>
               </View>
-
-              {isReadyForCollection && (
-                <View style={styles.collectionCodeBox}>
-                  <Text style={styles.collectionCodeLabel}>
-                    6-DIGIT COLLECTION CODE
-                  </Text>
-
-                  <Text style={styles.collectionCodeValue}>
-                    {parcel.collectionCode}
-                  </Text>
-
-                  <Text style={styles.collectionCodeHint}>
-                    Present this code at {parcel.destination?.collectionPoint || "the collection point"} to collect your parcel.
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.divider} />
-
-              <Text style={styles.detailLabel}>
-                Recipient
-              </Text>
-
-              <Text style={styles.detailValue}>
-                {parcel.recipient?.fullName || "Not provided"}
-              </Text>
-
-              <Text style={styles.detailLabel}>
-                Destination
-              </Text>
-
-              <Text style={styles.detailValue}>
-                {parcel.destination?.town || "Not provided"}
-              </Text>
-
-              <Text style={styles.detailLabel}>
-                Collection Point
-              </Text>
-
-              <Text style={styles.detailValue}>
-                {parcel.destination?.collectionPoint ||
-                  "Not provided"}
-              </Text>
             </View>
 
-            {/* TRANSPORT DETAILS */}
-            {parcel.transportHandover && (
-              <View style={styles.parcelCard}>
-                <Text style={styles.historyTitle}>
-                  Transport Information
-                </Text>
-
-                <Text style={styles.detailLabel}>
-                  Transport Company
-                </Text>
-                <Text style={styles.detailValue}>
-                  {parcel.transportHandover.partner}
-                </Text>
-
-                <Text style={styles.detailLabel}>
-                  Contact Person
-                </Text>
-                <Text style={styles.detailValue}>
-                  {parcel.transportHandover.contactPerson}
-                </Text>
-
-                <Text style={styles.detailLabel}>
-                  Contact Number
-                </Text>
-                <Text style={styles.detailValue}>
-                  {parcel.transportHandover.contactNumber ||
-                    "Not provided"}
-                </Text>
-
-                <Text style={styles.detailLabel}>
-                  Handover Date
-                </Text>
-                <Text style={styles.detailValue}>
-                  {formatDate(
-                    parcel.transportHandover.handedOverAt
-                  )}
+            {/* 6-Digit Collection Code Banner when Ready for Collection */}
+            {parcel.status === "Ready for Collection" && parcel.collectionCode ? (
+              <View style={styles.codeBanner}>
+                <Text style={styles.codeBannerLabel}>6-Digit Collection Code</Text>
+                <Text style={styles.codeBannerValue}>{parcel.collectionCode}</Text>
+                <Text style={styles.codeBannerHint}>
+                  Present this code at {parcel.collectionPoint} ({parcel.destinationTown}) to collect your parcel.
                 </Text>
               </View>
-            )}
+            ) : null}
 
-            {/* TRANSPORT CHECKPOINT UPDATES */}
-            {transportUpdates.length > 0 && (
-              <View style={styles.parcelCard}>
-                <Text style={styles.historyTitle}>
-                  Transit Checkpoints
+            {/* Collected Confirmation Banner */}
+            {parcel.status === "Collected" ? (
+              <View style={styles.collectedBanner}>
+                <Text style={styles.collectedTitle}>Parcel Collected</Text>
+                <Text style={styles.collectedText}>
+                  Collected on {formatTimestamp(parcel.collectedAt)}
                 </Text>
-
-                {transportUpdates
-                  .slice()
-                  .reverse()
-                  .map((checkpoint, index) => (
-                    <View
-                      key={checkpoint.id || `${checkpoint.updatedAt}-${index}`}
-                      style={[
-                        styles.checkpointItem,
-                        index < transportUpdates.length - 1 &&
-                          styles.checkpointDivider,
-                      ]}
-                    >
-                      <Text style={styles.checkpointLocation}>
-                        📍 {checkpoint.location}
-                      </Text>
-
-                      <Text style={styles.checkpointDate}>
-                        {formatDate(checkpoint.updatedAt)}
-                      </Text>
-
-                      {!!checkpoint.note && (
-                        <Text style={styles.checkpointNote}>
-                          {checkpoint.note}
-                        </Text>
-                      )}
-                    </View>
-                  ))}
               </View>
-            )}
+            ) : null}
 
-            {/* Tracking History */}
-            <Text style={styles.historyTitle}>
-              Tracking History
-            </Text>
+            <View style={styles.detailGrid}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Item</Text>
+                <Text style={styles.detailValue}>
+                  {parcel.description} (Qty: {parcel.quantity ?? 1})
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Sender</Text>
+                <Text style={styles.detailValue}>{parcel.senderName}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Recipient</Text>
+                <Text style={styles.detailValue}>{parcel.recipientName}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Destination</Text>
+                <Text style={styles.detailValue}>{parcel.destinationTown}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Collection Store</Text>
+                <Text style={styles.detailValue}>{parcel.collectionPoint}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Registered</Text>
+                <Text style={styles.detailValue}>
+                  {formatTimestamp(parcel.createdAt)}
+                </Text>
+              </View>
+            </View>
+          </View>
 
-            {history.length === 0 ? (
-              <Text style={styles.emptyText}>
-                No tracking updates available.
+          {/* Ask Svitsai AI Assistant Card */}
+          <AskSvitsaiCard trackingCode={parcel.id} />
+
+          {/* Transport Handover Details */}
+          {handover ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Transport Handover</Text>
+              <Text style={styles.itemTitle}>
+                Partner: {handover.partner || "Assigned Carrier"}
               </Text>
+              {handover.contactPerson ? (
+                <Text style={styles.itemSub}>Contact: {handover.contactPerson}</Text>
+              ) : null}
+              {handover.vehicleDetails ? (
+                <Text style={styles.itemSub}>Vehicle: {handover.vehicleDetails}</Text>
+              ) : null}
+              {handover.notes ? (
+                <Text style={styles.itemNote}>{handover.notes}</Text>
+              ) : null}
+              <Text style={styles.itemTime}>
+                Handed over: {formatTimestamp(handover.handedOverAt || handover.timestamp)}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Transit Checkpoints */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Transit Checkpoints</Text>
+            {checkpoints.length === 0 ? (
+              <Text style={styles.emptyText}>No transit checkpoints recorded yet.</Text>
             ) : (
-              history.slice().reverse().map((item, index) => (
-                <View
-                  key={`${item.timestamp}-${index}`}
-                  style={styles.historyItem}
-                >
-                  <View style={styles.timelineColumn}>
-                    <View style={styles.timelineDot} />
-
-                    {index !== history.length - 1 && (
-                      <View style={styles.timelineLine} />
-                    )}
-                  </View>
-
-                  <View style={styles.historyContent}>
-                    <Text style={styles.historyStatus}>
-                      {item.status}
-                    </Text>
-
-                    <Text style={styles.historyDate}>
-                      {formatDate(item.timestamp)}
-                    </Text>
-
-                    {!!item.note && (
-                      <Text style={styles.historyNote}>
-                        {item.note}
-                      </Text>
-                    )}
-                  </View>
+              checkpoints.map((cp, index) => (
+                <View key={cp.id || `${cp.location}-${index}`} style={styles.timelineItem}>
+                  <Text style={styles.itemTitle}>{cp.location}</Text>
+                  {cp.note ? <Text style={styles.itemNote}>{cp.note}</Text> : null}
+                  <Text style={styles.itemTime}>
+                    {formatTimestamp(cp.recordedAt || cp.timestamp)}
+                  </Text>
                 </View>
               ))
             )}
-          </>
-        )}
+          </View>
 
-        <Text style={styles.footer}>
-          Svitsai – Send with confidence.
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Status History */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Status History</Text>
+            {statusHistory.length === 0 ? (
+              <Text style={styles.emptyText}>No status updates available.</Text>
+            ) : (
+              statusHistory.map((entry, index) => (
+                <View key={entry.id || `${entry.status}-${index}`} style={styles.timelineItem}>
+                  <Text style={styles.itemTitle}>{entry.status}</Text>
+                  {entry.note ? <Text style={styles.itemNote}>{entry.note}</Text> : null}
+                  <Text style={styles.itemTime}>
+                    {formatTimestamp(entry.recordedAt || entry.timestamp)}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        </>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#F1F5F9",
   },
-
-  header: {
-    padding: 20,
+  content: {
+    padding: 16,
+    paddingBottom: 36,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  searchCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+    marginBottom: 6,
+  },
+  searchRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: "#0F172A",
+  },
+  searchButton: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  searchButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  errorCard: {
+    marginTop: 14,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#991B1B",
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#B91C1C",
+    marginTop: 4,
+  },
+  card: {
+    marginTop: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
   },
-
-  backButton: {
-    color: COLORS.primary,
+  parcelId: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  codeBanner: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  codeBannerLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#166534",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  codeBannerValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#15803D",
+    letterSpacing: 6,
+    marginVertical: 4,
+  },
+  codeBannerHint: {
+    fontSize: 12,
+    color: "#166534",
+    textAlign: "center",
+  },
+  collectedBanner: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  collectedTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  collectedText: {
+    fontSize: 12,
+    color: "#475569",
+    marginTop: 2,
+  },
+  detailGrid: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    paddingBottom: 6,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: "#64748B",
     fontWeight: "600",
   },
-
-  brand: {
-    color: COLORS.primary,
-    fontWeight: "bold",
-    fontSize: 21,
-  },
-
-  content: {
-    padding: 20,
-    paddingBottom: 35,
-  },
-
-  title: {
-    fontSize: 27,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-
-  subtitle: {
-    color: "#666666",
-    lineHeight: 21,
-    marginTop: 8,
-    marginBottom: 22,
-  },
-
-  searchCard: {
-    backgroundColor: "#FFFFFF",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-
-  label: {
+  detailValue: {
+    fontSize: 13,
+    color: "#0F172A",
     fontWeight: "600",
-    color: COLORS.text,
+    maxWidth: "62%",
+    textAlign: "right",
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
     marginBottom: 10,
   },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#D8DFD5",
-    borderRadius: 10,
-    padding: 14,
-    color: COLORS.text,
+  timelineItem: {
+    borderLeftWidth: 2,
+    borderLeftColor: "#0284C7",
+    paddingLeft: 10,
+    marginBottom: 12,
   },
-
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 14,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-
-  errorCard: {
-    backgroundColor: "#FCE8E8",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-
-  errorText: {
-    color: "#A93226",
-  },
-
-  parcelCard: {
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 25,
-  },
-
-  referenceLabel: {
-    color: "#777777",
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-
-  reference: {
-    fontSize: 19,
-    color: COLORS.primary,
-    fontWeight: "bold",
-    marginTop: 6,
-  },
-
-  statusBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginTop: 12,
-  },
-
-  statusText: {
-    color: COLORS.primary,
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-
-  collectionCodeBox: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 16,
-    alignItems: "center",
-  },
-
-  collectionCodeLabel: {
-    color: COLORS.text,
-    fontSize: 10,
-    fontWeight: "bold",
-    letterSpacing: 1,
-  },
-
-  collectionCodeValue: {
-    color: COLORS.primary,
-    fontSize: 28,
-    fontWeight: "bold",
-    letterSpacing: 6,
-    marginVertical: 6,
-  },
-
-  collectionCodeHint: {
-    color: "#666666",
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 18,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#EEEEEE",
-    marginVertical: 18,
-  },
-
-  detailLabel: {
-    color: "#777777",
-    fontSize: 12,
-    marginTop: 12,
-  },
-
-  detailValue: {
-    color: COLORS.text,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-
-  checkpointItem: {
-    paddingVertical: 4,
-  },
-
-  checkpointDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-    paddingBottom: 14,
-    marginBottom: 14,
-  },
-
-  checkpointLocation: {
-    color: COLORS.text,
+  itemTitle: {
     fontSize: 14,
-    fontWeight: "bold",
+    fontWeight: "700",
+    color: "#0F172A",
   },
-
-  checkpointDate: {
-    color: "#777777",
-    fontSize: 12,
+  itemSub: {
+    fontSize: 13,
+    color: "#334155",
+    marginTop: 2,
+  },
+  itemNote: {
+    fontSize: 13,
+    color: "#475569",
+    marginTop: 2,
+  },
+  itemTime: {
+    fontSize: 11,
+    color: "#64748B",
     marginTop: 4,
   },
-
-  checkpointNote: {
-    color: "#666666",
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 5,
-  },
-
-  historyTitle: {
-    fontSize: 19,
-    fontWeight: "bold",
-    color: COLORS.text,
-    marginBottom: 20,
-  },
-
-  historyItem: {
-    flexDirection: "row",
-    minHeight: 75,
-  },
-
-  timelineColumn: {
-    width: 25,
-    alignItems: "center",
-  },
-
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primary,
-  },
-
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: COLORS.accent,
-  },
-
-  historyContent: {
-    flex: 1,
-    paddingLeft: 12,
-    paddingBottom: 20,
-  },
-
-  historyStatus: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-
-  historyDate: {
-    fontSize: 12,
-    color: "#777777",
-    marginTop: 5,
-  },
-
-  historyNote: {
-    fontSize: 12,
-    color: "#666666",
-    marginTop: 5,
-  },
-
   emptyText: {
-    color: "#777777",
-  },
-
-  footer: {
-    color: "#888888",
-    textAlign: "center",
-    fontSize: 12,
-    marginTop: 30,
+    fontSize: 13,
+    color: "#64748B",
   },
 });
